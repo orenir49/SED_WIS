@@ -1,6 +1,10 @@
 import numpy as np
 import pandas as pd
 from dustapprox.models import PrecomputedModel
+from os import path
+from urllib import request
+import ssl 
+from astroquery.gaia import Gaia
 
 lib = PrecomputedModel()
 
@@ -136,7 +140,8 @@ def get_WISE_extinction(Av,bprp0=0,teff=None): # returns extinction in W1, W2, W
     return kW1 * Av, kW2 * Av, kW3 * Av, kW4 * Av
 
 def get_teff(bprp0): # returns rough estimate of teff from photometry- to be used in the extinction calculations
-    tbl = pd.DataFrame(np.genfromtxt('./zams.dat',names=True,dtype=None,skip_header=13))
+    filepath = path.join('.','models','zams.dat')
+    tbl = pd.DataFrame(np.genfromtxt(filepath,names=True,dtype=None,skip_header=13))
     tbl = tbl[tbl['Mini'] < 5]
     bprp = tbl['G_BPmag'] - tbl['G_RPmag']
     t = 10**tbl['logTe']
@@ -145,4 +150,32 @@ def get_teff(bprp0): # returns rough estimate of teff from photometry- to be use
     teff = np.interp(bprp0,bprp,t)
     return teff
 
+def query_extinction(source_id): # Query Stilism 3D dust map for the extinction in the direction of a given source
+    """
+    Query the Stilism 3D dust map for the extinction in the direction of a given source
+    Function queries Gaia for the 3D coordinates of the source (ra,dec,parallax), then queries Stilism for the extinction in that direction
+    
+    Parameters
+    ----------
+    source_id : int
+        Gaia DR3 source_id
+    
+    Returns
+    -------
+    Av : float
+        Extinction in the direction of the source
+    """
+    context = ssl._create_unverified_context()
+    query = f'''SELECT ra,dec,parallax FROM gaiadr3.gaia_source WHERE source_id = {source_id}'''
+    job = Gaia.launch_job(query)
+    res = job.get_results()
 
+    ra = res['ra'][0]
+    dec = res['dec'][0]
+    par = res['parallax'][0]
+
+    d = np.abs(1000/par)
+    with  request.urlopen(f'https://astro.acri-st.fr/gaia_dev/extinction?frame=icrs&vlong={ra}&ulong=deg&vlat={dec}&ulat=deg&distance={d}',context=context) as response:
+        html = response.read()
+        av = float(html.split(b'\n')[1].split(b',')[1])
+    return av

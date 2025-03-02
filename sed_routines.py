@@ -2,24 +2,37 @@ import numpy as np
 from astropy.table import Table
 from astropy.constants import G, M_sun, pc, R_sun, h, c, k_B
 from scipy.interpolate import LinearNDInterpolator #, interp1d
+from scipy.optimize import curve_fit
 import astropy.units as u
-import extinction_routines as extinction_routines
 import os
 
 # This is our band retrieval routines
 import band_retrieval_routines as brr
+# This is our extinction routines
+import extinction_routines as extinction_routines
 
 
 
 # -------------------------------------------------------
-#                 § Fitting routines
+#                 § Utility routines
 # -------------------------------------------------------
 
 def get_distance(parallax,parallax_err):
     ## distance in meters calculated from parallax in mas
     return (1000/parallax) * pc.value , (1000/parallax**2)*parallax_err * pc.value
 
-def blackbody_flux(wavelength, temperature):
+# -------------------------------------------------------
+#                 § SED modelling routines
+# -------------------------------------------------------
+
+kurucz = Table(np.genfromtxt(os.path.join('.', 'models', 'kurucz_sed.dat'), names=True, dtype=None))
+co_da = Table(np.genfromtxt(os.path.join('.', 'models', 'CO_DA.dat'), names=True, dtype=None))
+co_db = Table(np.genfromtxt(os.path.join('.', 'models', 'CO_DB.dat'), names=True, dtype=None))
+he_da = Table(np.genfromtxt(os.path.join('.', 'models', 'He_wd.dat'), names=True, dtype=None))
+one_da = Table(np.genfromtxt(os.path.join('.', 'models', 'ONe_DA.dat'), names=True, dtype=None))
+one_db = Table(np.genfromtxt(os.path.join('.', 'models', 'ONe_DB.dat'), names=True, dtype=None))
+
+def blackbody_spectrum(wavelength, temperature):
     """
     Calculate the blackbody flux for a given wavelength and temperature.
 
@@ -43,18 +56,6 @@ def blackbody_flux(wavelength, temperature):
     f = (2 * np.pi * h.cgs * c.cgs**2 / wavelength.cgs**5) / (np.exp(h.cgs * c.cgs / (wavelength.cgs * k_B.cgs * temperature)) - 1)
     return f.to(u.erg / u.s / u.cm**2 / u.AA)
 
-
-
-# -------------------------------------------------------
-#                 § SED modelling routines
-# -------------------------------------------------------
-
-kurucz = Table(np.genfromtxt(os.path.join('.', 'models', 'kurucz_sed.dat'), names=True, dtype=None))
-co_da = Table(np.genfromtxt(os.path.join('.', 'models', 'CO_DA.dat'), names=True, dtype=None))
-co_db = Table(np.genfromtxt(os.path.join('.', 'models', 'CO_DB.dat'), names=True, dtype=None))
-he_da = Table(np.genfromtxt(os.path.join('.', 'models', 'He_wd.dat'), names=True, dtype=None))
-one_da = Table(np.genfromtxt(os.path.join('.', 'models', 'ONe_DA.dat'), names=True, dtype=None))
-one_db = Table(np.genfromtxt(os.path.join('.', 'models', 'ONe_DB.dat'), names=True, dtype=None))
 
 def get_blackbody_sed(teff, radius, parallax, parallax_err, Av, bands_table=None):
     """
@@ -107,7 +108,7 @@ def get_blackbody_sed(teff, radius, parallax, parallax_err, Av, bands_table=None
         filter_tbl    = Table.read(filepath, format='ascii', names=['wavelength', 'transmission'])
         wavelength    = filter_tbl['wavelength'].data * u.AA
         transmission  = filter_tbl['transmission'].data 
-        flux          = blackbody_flux(wavelength, teff * u.K)
+        flux          = blackbody_spectrum(wavelength, teff * u.K)
         flux          = np.dot(flux, transmission)
         flux         /= np.sum(transmission)
         flux          = flux * (radius / d)**2
@@ -389,7 +390,6 @@ def redden_model_table(mod_tbl,teff,av, bands_table=None):
     ext_dict = {'2MASS.J': AJ, '2MASS.H': AH, '2MASS.Ks': AKs, 'GALEX.FUV': AFUV, 'GALEX.NUV': ANUV, 'GAIA3.G': AG, 'GAIA3.Gbp': AGbp, 'GAIA3.Grp': AGrp,
                 'WISE.W1': AW1, 'WISE.W2': AW2, 'WISE.W3': AW3, 'WISE.W4': AW4, 'Johnson.U': AU, 'Johnson.B': AB, 'Johnson.V': AV, 'Johnson.R': AR, 'Johnson.I': AI,
                 'SDSS.u': Au, 'SDSS.g': Ag, 'SDSS.r': Ar, 'SDSS.i': Ai, 'SDSS.z': Az}
-    
     for band, col in zip(bands_table['band'], bands_table['wd_band']):
         mod_tbl[col][0] = mod_tbl[col][0] * 10**(-0.4 * ext_dict[band])
         
@@ -514,3 +514,92 @@ def get_cooling_temp(age, m, core='CO', atm='H', model_path=None):
     age_vec = [get_cooling_age(teff, m, core, atm, model_path) for teff in teff_vec]
     teff = np.interp(age, age_vec, teff_vec)
     return teff
+
+
+# -------------------------------------------------------
+#                 § SED fitting routines
+# -------------------------------------------------------
+
+def fit_MS_RT(source_id,m1,meta,av,init_guess=[6000,1],bounds=[(3500,0.1),(10000,5)],bands_to_ignore=[]):
+    """
+    Fit the SED of a source using Kurucz models.
+    Fitting parameters are effective temperature (Teff) and radius (R).
+    Fixed parameters are mass (m1), metallicity (meta), and extinction (av).
+
+    Parameters:
+    -----------
+    source_id : int
+        Gaia DR3 source ID.
+    m1 : float
+        Mass of the source in solar masses.
+    meta : float
+        Metallicity of the source.
+    av : float
+        Extinction in the V band.
+    init_guess : list, optional
+        Initial guess for the fitting parameters (Teff, R). Default is [6000, 1].
+    bounds : list of tuples, optional
+        Bounds for the fitting parameters (Teff, R).
+        Format is [(Teff_min, R_min), (Teff_max, R_max)]. Default is [(3500, 0.1), (10000, 5)].
+    bands_to_ignore : list, optional
+        List of bands to ignore in the fitting. Default is empty.
+        Options: ['GALEX.FUV' 'GALEX.NUV' 'Johnson.U' 'SDSS.u' 'Johnson.B' 'SDSS.g'
+                    'GAIA3.Gbp' 'Johnson.V' 'GAIA3.G' 'SDSS.r' 'Johnson.R' 'SDSS.i'
+                        'GAIA3.Grp' 'Johnson.I' 'SDSS.z' '2MASS.J' '2MASS.H' '2MASS.Ks' 'WISE.W1'
+                             'WISE.W2' 'WISE.W3']
+    Returns:
+    --------
+    tuple
+        A tuple containing the fitted parameters (Teff, R) and the reduced chi-square value.
+    """
+    # get observed fluxes for the source
+    obs_tbl = brr.get_photometry_single_source(source_id)
+
+    # organize the observed fluxes and wavelengths into vectors
+    bands_table = brr.get_bands_table()
+    bnds = list(bands_table['band'])
+    wl = np.array(list(bands_table['lambda_eff']))
+    flux = np.array([obs_tbl[0][bnd] for bnd in bnds])
+    flux_err = np.array([obs_tbl[0][bnd + '_err'] for bnd in bnds])
+
+    # fixed parameters for the model
+    parallax = obs_tbl[0]['parallax']
+    meta = meta
+    av = av
+    m1 = m1
+
+    def model_flux(x,t,r):
+        ms = get_MS_sed(t,m1,r,meta,parallax) # get the model flux
+        ms = redden_model_table(ms,t,av) # apply reddening
+        model_flux = np.array([ms[bnd][0] for bnd in bands_table['wd_band']]) # organize the model fluxes into a vector
+        wl = list(bands_table['lambda_eff'])
+        cut = np.isin(wl,x) # only consider the bands that are not masked
+        model_flux = model_flux[cut]
+        return model_flux
+    
+    # mask np.nan values (bands that are not observed)
+    mask = np.isfinite(flux)
+    bnds = np.array(bnds)[mask]
+    wl = wl[mask]
+    flux = flux[mask]
+    flux_err = flux_err[mask]
+
+    # mask the bands to ignore
+    mask = np.ones(len(bnds), dtype=bool)
+    for band in bands_to_ignore:
+        mask[bnds.index(band)] = False
+    x = wl[mask]
+    y = flux[mask]
+    y_err = flux_err[mask]
+
+    # do a chi-square fit
+    res = curve_fit(model_flux,x,y,p0=init_guess,bounds=bounds,sigma=y_err,absolute_sigma=True)
+    t1_fit,r1_fit = res[0]
+    t1_err,r1_err = np.sqrt(np.diag(res[1]))
+
+    # calculate the reduced chi-square value, while considering the residuals for ALL bands (including the masked ones)
+    chi2 = np.sum((flux - model_flux(wl,t1_fit,r1_fit))**2 / flux_err**2)
+    dof = len(flux) - 2 # subtract two for the two fitting parameters
+    redchi2 = chi2 / dof
+    
+    return t1_fit,t1_err,r1_fit,r1_err,redchi2
