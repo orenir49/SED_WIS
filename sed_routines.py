@@ -4,6 +4,7 @@ from astropy.constants import G, M_sun, pc, R_sun, h, c, k_B
 from scipy.interpolate import LinearNDInterpolator #, interp1d
 from scipy.optimize import curve_fit
 import astropy.units as u
+from astroquery.gaia import Gaia
 import os
 
 # This is our band retrieval routines
@@ -20,6 +21,16 @@ import extinction_routines as extinction_routines
 def get_distance(parallax,parallax_err):
     ## distance in meters calculated from parallax in mas
     return (1000/parallax) * pc.value , (1000/parallax**2)*parallax_err * pc.value
+
+def get_orbital_parameters(source_id):
+    query = f'''SELECT parallax, period, eccentricity FROM gaiadr3.nss_two_body_orbit WHERE source_id = {int(source_id)}'''
+    result = Gaia.launch_job(query)
+    result = result.get_results()
+    if len(result) > 0:
+        return result['parallax'][0],result['period'][0],result['eccentricity'][0]
+    else:
+        print('Source not in NSS')
+        return np.nan, np.nan, np.nan
 
 # -------------------------------------------------------
 #                 § SED modelling routines
@@ -520,7 +531,7 @@ def get_cooling_temp(age, m, core='CO', atm='H', model_path=None):
 #                 § SED fitting routines
 # -------------------------------------------------------
 
-def fit_MS_RT(source_id,m1,meta,av,init_guess=[6000,1],bounds=[(3500,0.1),(10000,5)],bands_to_ignore=[]):
+def fit_MS_RT(source_id,m1,meta,av,parallax=None,init_guess=[6000,1],bounds=[(3500,0.1),(10000,5)],bands_to_ignore=[]):
     """
     Fit the SED of a source using Kurucz models.
     Fitting parameters are effective temperature (Teff) and radius (R).
@@ -536,6 +547,8 @@ def fit_MS_RT(source_id,m1,meta,av,init_guess=[6000,1],bounds=[(3500,0.1),(10000
         Metallicity of the source.
     av : float
         Extinction in the V band.
+    parallax: float, optional
+        Parallax in milliarcsec. If not provided, use value from gaia main table.
     init_guess : list, optional
         Initial guess for the fitting parameters (Teff, R). Default is [6000, 1].
     bounds : list of tuples, optional
@@ -553,7 +566,7 @@ def fit_MS_RT(source_id,m1,meta,av,init_guess=[6000,1],bounds=[(3500,0.1),(10000
         A tuple containing the fitted parameters (Teff, R) and the reduced chi-square value.
     """
     # get observed fluxes for the source
-    obs_tbl = brr.get_photometry_single_source(source_id)
+    obs_tbl, flags = brr.get_photometry_single_source(source_id)
 
     # organize the observed fluxes and wavelengths into vectors
     bands_table = brr.get_bands_table()
@@ -563,7 +576,10 @@ def fit_MS_RT(source_id,m1,meta,av,init_guess=[6000,1],bounds=[(3500,0.1),(10000
     flux_err = np.array([obs_tbl[0][bnd + '_err'] for bnd in bnds])
 
     # fixed parameters for the model
-    parallax = obs_tbl[0]['parallax']
+    if parallax is None:
+        parallax = obs_tbl[0]['parallax']
+    else: 
+        parallax = parallax
     meta = meta
     av = av
     m1 = m1

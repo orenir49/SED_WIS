@@ -8,6 +8,12 @@ from astropy.coordinates import SkyCoord
 from astropy.constants import G, M_sun, pc, R_sun, h, c, k_B
 import astropy.units as u
 
+from astroquery.exceptions import NoResultsWarning
+import warnings
+
+# Suppress the NoResultsWarning
+warnings.filterwarnings('ignore', category=NoResultsWarning)
+
 
 filter_band_dict = {'GALEX/GALEX.FUV':'GALEX.FUV','GALEX/GALEX.NUV':'GALEX.NUV','GAIA/GAIA3.G':'GAIA3.G','GAIA/GAIA3.Gbp':'GAIA3.Gbp','GAIA/GAIA3.Grp':'GAIA3.Grp',
                     'Generic/Johnson.U':'Johnson.U','Generic/Johnson.B':'Johnson.B','Generic/Johnson.V':'Johnson.V','Generic/Johnson.R':'Johnson.R','Generic/Johnson.I':'Johnson.I',
@@ -515,4 +521,6 @@ def get_photometry_single_source(source_id):
             if snr[i] > 10:  # if SNR > 10, set error to 10% of flux: minimal error to account for model uncertainties
                 tbl[i][col + '_err'] = 0.1 * tbl[i][col]
 
-    return Table(tbl[0])
+    band_status = {band: ('ok' if np.isfinite(tbl[band][0]) else 'no_data') for band in flux_cols}
+
+    return Table(tbl[0]), band_status

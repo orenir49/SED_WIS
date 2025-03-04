@@ -131,7 +131,7 @@ def create_model_label(teff1,teff1_err,r1,r1_err,chi2):
     lbl += '$R_1=$' + f'{np.round(r1,sig_dig_r)}$\pm${np.round(r1_err,sig_dig_r)} $R_\odot$'
     return lbl
 
-def plot_kurucz_fit(source_id,m1,meta,av,fit_results,bands_to_ignore=[],plot=True,save=False):
+def plot_kurucz_fit(source_id,m1,meta,av,fit_results,parallax=None,bands_to_ignore=[],plot=True,save=False):
     """
     Fits a stellar model to observed photometry and plots the best-fit SED along with residuals.
 
@@ -147,6 +147,8 @@ def plot_kurucz_fit(source_id,m1,meta,av,fit_results,bands_to_ignore=[],plot=Tru
         Extinction in the V band.
     fit_results : tuple
         Fit results (Teff, Teff_err, R, R_err, redchi2).
+    parallax: float, optional
+        Parallax in milliarcsec. If not provided, use value from gaia main table.
     bands_to_ignore : list, optional
         List of bands to exclude from fitting. Default is [].
         Options: ['GALEX.FUV' 'GALEX.NUV' 'Johnson.U' 'SDSS.u' 'Johnson.B' 'SDSS.g'
@@ -163,7 +165,7 @@ def plot_kurucz_fit(source_id,m1,meta,av,fit_results,bands_to_ignore=[],plot=Tru
     None
     """
     # Get the observed data
-    obs_tbl = brr.get_photometry_single_source(source_id)
+    obs_tbl,flags = brr.get_photometry_single_source(source_id)
     bands_table = brr.get_bands_table()
 
     # Organize the observed data
@@ -181,7 +183,10 @@ def plot_kurucz_fit(source_id,m1,meta,av,fit_results,bands_to_ignore=[],plot=Tru
 
     # All model parameters
     teff_fit, teff_err, r_fit, r_err, redchi2 = fit_results
-    parallax = obs_tbl[0]['parallax']
+    if parallax is None:
+        parallax = obs_tbl[0]['parallax']
+    else:
+        parallax = parallax
     m1 = m1
     meta = meta
     av = av
