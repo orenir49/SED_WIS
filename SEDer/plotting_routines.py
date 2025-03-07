@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 import warnings
 
 # This is our band retrieval routines
-import band_retrieval_routines as brr
+from SEDer import band_retrieval_routines as brr
 # This is our extinction routines
-import extinction_routines as extinction_routines
+from SEDer import extinction_routines as extinction_routines
 # This is our SED fitting routines
-import sed_routines as sr
+from SEDer import sed_routines as sr
 
 warnings.simplefilter('ignore', UserWarning)
 

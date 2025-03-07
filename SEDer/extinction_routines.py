@@ -5,10 +5,17 @@ from os import path
 from urllib import request
 import ssl 
 from astroquery.gaia import Gaia
+import os 
 
 lib = PrecomputedModel()
 
 # Load the models to save time
+
+# Get the relative path where the current file is stored, to refer
+# properly to the path where the models are stored.
+def get_script_path():
+    return os.path.dirname(os.path.realpath(__file__))
+current_path = get_script_path()
 
 filename = lib.find(passband='Gaia')[0]['filename']
 model = lib.load_model(filename)
@@ -140,7 +147,7 @@ def get_WISE_extinction(Av,bprp0=0,teff=None): # returns extinction in W1, W2, W
     return kW1 * Av, kW2 * Av, kW3 * Av, kW4 * Av
 
 def get_teff(bprp0): # returns rough estimate of teff from photometry- to be used in the extinction calculations
-    filepath = path.join('.','models','zams.dat')
+    filepath = path.join(current_path,'models','zams.dat')
     tbl = pd.DataFrame(np.genfromtxt(filepath,names=True,dtype=None,skip_header=13))
     tbl = tbl[tbl['Mini'] < 5]
     bprp = tbl['G_BPmag'] - tbl['G_RPmag']

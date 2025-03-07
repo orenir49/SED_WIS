@@ -8,9 +8,10 @@ from astroquery.gaia import Gaia
 import os
 
 # This is our band retrieval routines
-import band_retrieval_routines as brr
+from SEDer import band_retrieval_routines as brr
 # This is our extinction routines
-import extinction_routines as extinction_routines
+from SEDer import extinction_routines as extinction_routines
+import sys
 
 
 
@@ -36,12 +37,18 @@ def get_orbital_parameters(source_id):
 #                 § SED modelling routines
 # -------------------------------------------------------
 
-kurucz = Table(np.genfromtxt(os.path.join('.', 'models', 'kurucz_sed.dat'), names=True, dtype=None))
-co_da = Table(np.genfromtxt(os.path.join('.', 'models', 'CO_DA.dat'), names=True, dtype=None))
-co_db = Table(np.genfromtxt(os.path.join('.', 'models', 'CO_DB.dat'), names=True, dtype=None))
-he_da = Table(np.genfromtxt(os.path.join('.', 'models', 'He_wd.dat'), names=True, dtype=None))
-one_da = Table(np.genfromtxt(os.path.join('.', 'models', 'ONe_DA.dat'), names=True, dtype=None))
-one_db = Table(np.genfromtxt(os.path.join('.', 'models', 'ONe_DB.dat'), names=True, dtype=None))
+# Get the relative path where the current file is stored, to refer
+# properly to the path where the models are stored.
+def get_script_path():
+    return os.path.dirname(os.path.realpath(__file__))
+current_path = get_script_path()
+
+kurucz = Table(np.genfromtxt(os.path.join(current_path, 'models', 'kurucz_sed.dat'), names=True, dtype=None))
+co_da = Table(np.genfromtxt(os.path.join(current_path, 'models', 'CO_DA.dat'), names=True, dtype=None))
+co_db = Table(np.genfromtxt(os.path.join(current_path, 'models', 'CO_DB.dat'), names=True, dtype=None))
+he_da = Table(np.genfromtxt(os.path.join(current_path, 'models', 'He_wd.dat'), names=True, dtype=None))
+one_da = Table(np.genfromtxt(os.path.join(current_path, 'models', 'ONe_DA.dat'), names=True, dtype=None))
+one_db = Table(np.genfromtxt(os.path.join(current_path, 'models', 'ONe_DB.dat'), names=True, dtype=None))
 
 def blackbody_spectrum(wavelength, temperature):
     """
