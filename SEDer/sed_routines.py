@@ -538,7 +538,7 @@ def get_cooling_temp(age, m, core='CO', atm='H', model_path=None):
 #                 § SED fitting routines
 # -------------------------------------------------------
 
-def fit_MS_RT(source_id,m1,meta,av,parallax=None,init_guess=[6000,1],bounds=[(3500,0.1),(10000,5)],bands_to_ignore=[]):
+def fit_MS_RT(obs_tbl, m1, meta, av, source_id=None, parallax=None,init_guess=[6000,1],bounds=[(3500,0.1),(10000,5)],bands_to_ignore=[]):
     """
     Fit the SED of a source using Kurucz models.
     Fitting parameters are effective temperature (Teff) and radius (R).
@@ -572,8 +572,11 @@ def fit_MS_RT(source_id,m1,meta,av,parallax=None,init_guess=[6000,1],bounds=[(35
     tuple
         A tuple containing the fitted parameters (Teff, R) and the reduced chi-square value.
     """
-    # get observed fluxes for the source
-    obs_tbl, flags = brr.get_photometry_single_source(source_id)
+    assert not (obs_tbl is None and source_id is None), "obs_tbl and source_id cannot be None at the same time"
+
+    # Get the observed data, if obs_tbl was not provided
+    if obs_tbl is None:
+        obs_tbl, flags = brr.get_photometry_single_source(source_id)
 
     # organize the observed fluxes and wavelengths into vectors
     bands_table = brr.get_bands_table()
@@ -587,9 +590,10 @@ def fit_MS_RT(source_id,m1,meta,av,parallax=None,init_guess=[6000,1],bounds=[(35
         parallax = obs_tbl[0]['parallax']
     else: 
         parallax = parallax
-    meta = meta
-    av = av
-    m1 = m1
+    
+    # meta = meta
+    # av = av
+    # m1 = m1
 
     def model_flux(x,t,r):
         ms = get_MS_sed(t,m1,r,meta,parallax) # get the model flux
