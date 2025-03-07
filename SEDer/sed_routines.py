@@ -537,8 +537,7 @@ def get_cooling_temp(age, m, core='CO', atm='H', model_path=None):
 # -------------------------------------------------------
 #                 § SED fitting routines
 # -------------------------------------------------------
-
-def fit_MS_RT(obs_tbl, m1, meta, av, source_id=None, parallax=None,init_guess=[6000,1],bounds=[(3500,0.1),(10000,5)],bands_to_ignore=[]):
+def fit_MS_RT(obs_tbl, m1, meta, av, source_id=None, parallax=None, init_guess=[6000, 1], bounds=[(3500, 0.1), (10000, 5)], bands_to_ignore=[]):
     """
     Fit the SED of a source using Kurucz models.
     Fitting parameters are effective temperature (Teff) and radius (R).
@@ -546,16 +545,18 @@ def fit_MS_RT(obs_tbl, m1, meta, av, source_id=None, parallax=None,init_guess=[6
 
     Parameters:
     -----------
-    source_id : int
-        Gaia DR3 source ID.
+    obs_tbl : astropy.table.Table or None
+        Table containing observed photometry. If None, photometry is retrieved using source_id.
     m1 : float
         Mass of the source in solar masses.
     meta : float
         Metallicity of the source.
     av : float
         Extinction in the V band.
-    parallax: float, optional
-        Parallax in milliarcsec. If not provided, use value from gaia main table.
+    source_id : int, optional
+        Gaia DR3 source ID. Used to retrieve photometry if obs_tbl is None.
+    parallax : float, optional
+        Parallax in milliarcsec. If not provided, use value from obs_tbl.
     init_guess : list, optional
         Initial guess for the fitting parameters (Teff, R). Default is [6000, 1].
     bounds : list of tuples, optional
@@ -563,10 +564,11 @@ def fit_MS_RT(obs_tbl, m1, meta, av, source_id=None, parallax=None,init_guess=[6
         Format is [(Teff_min, R_min), (Teff_max, R_max)]. Default is [(3500, 0.1), (10000, 5)].
     bands_to_ignore : list, optional
         List of bands to ignore in the fitting. Default is empty.
-        Options: ['GALEX.FUV' 'GALEX.NUV' 'Johnson.U' 'SDSS.u' 'Johnson.B' 'SDSS.g'
-                    'GAIA3.Gbp' 'Johnson.V' 'GAIA3.G' 'SDSS.r' 'Johnson.R' 'SDSS.i'
-                        'GAIA3.Grp' 'Johnson.I' 'SDSS.z' '2MASS.J' '2MASS.H' '2MASS.Ks' 'WISE.W1'
-                             'WISE.W2' 'WISE.W3']
+        Options: ['GALEX.FUV', 'GALEX.NUV', 'Johnson.U', 'SDSS.u', 'Johnson.B', 'SDSS.g',
+                  'GAIA3.Gbp', 'Johnson.V', 'GAIA3.G', 'SDSS.r', 'Johnson.R', 'SDSS.i',
+                  'GAIA3.Grp', 'Johnson.I', 'SDSS.z', '2MASS.J', '2MASS.H', '2MASS.Ks', 'WISE.W1',
+                  'WISE.W2', 'WISE.W3']
+
     Returns:
     --------
     tuple
