@@ -131,14 +131,14 @@ def create_model_label(teff1,teff1_err,r1,r1_err,chi2):
     lbl += '$R_1=$' + f'{np.round(r1,sig_dig_r)}$\pm${np.round(r1_err,sig_dig_r)} $R_\odot$'
     return lbl
 
-def plot_kurucz_fit(source_id,m1,meta,av,fit_results,parallax=None,bands_to_ignore=[],plot=True,save=False):
+def plot_kurucz_fit(obs_tbl, m1,meta,av,fit_results, source_id=None,parallax=None,bands_to_ignore=[],plot=True,save=False):
     """
     Fits a stellar model to observed photometry and plots the best-fit SED along with residuals.
 
     Parameters:
     -----------
-    source_id : int
-        Gaia DR3 source ID.
+    obs_tbl : astropy.table.Table or None
+        Table containing observed photometry. If None, photometry is retrieved using source_id.
     m1 : float
         Mass of the source in solar masses.
     meta : float
@@ -147,14 +147,16 @@ def plot_kurucz_fit(source_id,m1,meta,av,fit_results,parallax=None,bands_to_igno
         Extinction in the V band.
     fit_results : tuple
         Fit results (Teff, Teff_err, R, R_err, redchi2).
-    parallax: float, optional
-        Parallax in milliarcsec. If not provided, use value from gaia main table.
+    source_id : int, optional
+        Gaia DR3 source ID. Used to retrieve photometry if obs_tbl is None.
+    parallax : float, optional
+        Parallax in milliarcsec. If not provided, use value from obs_tbl.
     bands_to_ignore : list, optional
         List of bands to exclude from fitting. Default is [].
-        Options: ['GALEX.FUV' 'GALEX.NUV' 'Johnson.U' 'SDSS.u' 'Johnson.B' 'SDSS.g'
-                    'GAIA3.Gbp' 'Johnson.V' 'GAIA3.G' 'SDSS.r' 'Johnson.R' 'SDSS.i'
-                        'GAIA3.Grp' 'Johnson.I' 'SDSS.z' '2MASS.J' '2MASS.H' '2MASS.Ks' 'WISE.W1'
-                            'WISE.W2' 'WISE.W3']
+        Options: ['GALEX.FUV', 'GALEX.NUV', 'Johnson.U', 'SDSS.u', 'Johnson.B', 'SDSS.g',
+                  'GAIA3.Gbp', 'Johnson.V', 'GAIA3.G', 'SDSS.r', 'Johnson.R', 'SDSS.i',
+                  'GAIA3.Grp', 'Johnson.I', 'SDSS.z', '2MASS.J', '2MASS.H', '2MASS.Ks', 'WISE.W1',
+                  'WISE.W2', 'WISE.W3']
     plot : bool, optional
         If True, displays the plot. Default is True.
     save : bool, optional
@@ -164,15 +166,22 @@ def plot_kurucz_fit(source_id,m1,meta,av,fit_results,parallax=None,bands_to_igno
     --------
     None
     """
-    # Get the observed data
-    obs_tbl,flags = brr.get_photometry_single_source(source_id)
-    bands_table = brr.get_bands_table()
+    assert not (obs_tbl is None and source_id is None), "Both obs_tbl and source_id cannot be None at the same time"
+    
+    # Get the observed data, if obs_tbl was not provided
+    if obs_tbl is None:
+        obs_tbl,flags = brr.get_photometry_single_source(source_id)
 
-    # Organize the observed data
-    bnds = list(bands_table['band'])
-    wl = np.array(list(bands_table['lambda_eff']))
-    flux = np.array([obs_tbl[0][bnd] for bnd in bnds])
-    flux = flux * wl
+    # Override the obs_tbl parallax if provided seperately
+    if parallax is None:
+        parallax = obs_tbl[0]['parallax']
+
+    # Organize the observed data    
+    bands_table = brr.get_bands_table()
+    bnds     = list(bands_table['band'])
+    wl       = np.array(list(bands_table['lambda_eff']))
+    flux     = np.array([obs_tbl[0][bnd] for bnd in bnds])
+    flux     = flux * wl
     flux_err = np.array([obs_tbl[0][bnd + '_err'] for bnd in bnds])
     flux_err = flux_err * wl
 
@@ -183,13 +192,10 @@ def plot_kurucz_fit(source_id,m1,meta,av,fit_results,parallax=None,bands_to_igno
 
     # All model parameters
     teff_fit, teff_err, r_fit, r_err, redchi2 = fit_results
-    if parallax is None:
-        parallax = obs_tbl[0]['parallax']
-    else:
-        parallax = parallax
-    m1 = m1
-    meta = meta
-    av = av
+
+    # m1 = m1
+    # meta = meta
+    # av = av
     best_fit_label = create_model_label(teff_fit,teff_err,r_fit,r_err,redchi2)
 
     # Get the best fit model

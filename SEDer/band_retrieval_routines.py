@@ -447,12 +447,13 @@ def get_galex_photometry(source_table):
         
 
 
-def get_photometry(source_table):
+def get_photometry(source_table, snr_lim=10):
     """
     Query photometry from multiple catalogs (Gaia, synthetic, GALEX, 2MASS, WISE) and convert to physical units.
 
     Parameters:
     source_table (Table): Table containing source information with 'source_id', 'ra', 'dec', 'parallax', 'parallax_error', '[Fe/H]', and 'Av' columns.
+    snr_lim (float): Signal-to-noise ratio limit. For all fluxes with reported SNR > snr_lim, the error is set to 10% of the flux.
 
     Returns:
     Table: Table with photometry data from multiple catalogs converted to physical units.
@@ -468,27 +469,30 @@ def get_photometry(source_table):
     tbl = table.join(tbl, get_wise_photometry(tbl, wise_zp_table), keys='idx', join_type='left', metadata_conflicts='silent')
 
     flux_cols = list(gaia_zp_table['band']) + list(wise_zp_table['band']) + list(twomass_zp_table['band']) + list(synt_zp_table['band']) + list(galex_zp_table['band'])
-    for col in flux_cols:
-        snr = tbl[col] / tbl[col + '_err']
-        for i in range(len(tbl)):
-            if snr[i] > 10:  # if SNR > 10, set error to 10% of flux: minimal error to account for model uncertainties
-                tbl[i][col + '_err'] = 0.1 * tbl[i][col]
+    
+    if snr_lim is not None:
+        for col in flux_cols:
+            snr = tbl[col] / tbl[col + '_err']
+            for i in range(len(tbl)):
+                if snr[i] > snr_lim:  # if SNR > snr_lim, set error to 10% of flux: minimal error to account for model uncertainties
+                    tbl[i][col + '_err'] = 0.1 * tbl[i][col]
 
     tbl.sort('idx')
     return tbl
 
 
 
-def get_photometry_single_source(source_id):
+def get_photometry_single_source(source_id, snr_lim=10):
     """
     Query photometry for a single source from multiple catalogs (Gaia, synthetic, GALEX, 2MASS, WISE) and convert to physical units.
 
     Parameters:
     source_id (int): Gaia DR3 source ID.
+    snr_lim (float): Signal-to-noise ratio limit. For all fluxes with reported SNR > snr_lim, the error is set to 10% of the flux.
 
     Returns:
     Table: Table with photometry data from multiple catalogs converted to physical units for the single source.
-    For all fluxes with reported SNR > 10, the error is set to 10% of the flux.
+    For all fluxes with reported SNR > snr_lim, the error is set to 10% of the flux.
     """
     query = f'''SELECT source_id, ra, dec, parallax, parallax_error, ag_gspphot 
                 FROM gaiadr3.gaia_source 
@@ -515,11 +519,13 @@ def get_photometry_single_source(source_id):
     tbl = table.join(tbl, get_wise_photometry(tbl), keys='idx', join_type='left', metadata_conflicts='silent')
 
     flux_cols = list(gaia_zp_table['band']) + list(wise_zp_table['band']) + list(twomass_zp_table['band']) + list(synt_zp_table['band']) + list(galex_zp_table['band'])
-    for col in flux_cols:
-        snr = tbl[col] / tbl[col + '_err']
-        for i in range(len(tbl)):
-            if snr[i] > 10:  # if SNR > 10, set error to 10% of flux: minimal error to account for model uncertainties
-                tbl[i][col + '_err'] = 0.1 * tbl[i][col]
+    
+    if snr_lim is not None:
+        for col in flux_cols:
+            snr = tbl[col] / tbl[col + '_err']
+            for i in range(len(tbl)):
+                if snr[i] > 10:  # if SNR > 10, set error to 10% of flux: minimal error to account for model uncertainties
+                    tbl[i][col + '_err'] = 0.1 * tbl[i][col]
 
     band_status = {band: ('ok' if np.isfinite(tbl[band][0]) else 'no_data') for band in flux_cols}
 
