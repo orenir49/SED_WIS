@@ -616,7 +616,7 @@ def fit_MS_RT(obs_tbl, m1, meta, av, source_id=None, parallax=None, init_guess=[
     # mask the bands to ignore
     mask = np.ones(len(bnds), dtype=bool)
     for band in bands_to_ignore:
-        mask[bnds.index(band)] = False
+        mask[bnds == band] = False
     x = wl[mask]
     y = flux[mask]
     y_err = flux_err[mask]
