@@ -6,8 +6,10 @@ import warnings
 from SEDer import band_retrieval_routines as brr
 # This is our extinction routines
 from SEDer import extinction_routines as extinction_routines
-# This is our SED fitting routines
+# This is our SED model routines
 from SEDer import sed_routines as sr
+# This is our SED fitting routines
+from SEDer import fitting_routines as fr
 
 warnings.simplefilter('ignore', UserWarning)
 
@@ -131,7 +133,7 @@ def create_model_label(teff1,teff1_err,r1,r1_err,chi2):
     lbl += '$R_1=$' + f'{np.round(r1,sig_dig_r)}$\pm${np.round(r1_err,sig_dig_r)} $R_\odot$'
     return lbl
 
-def plot_kurucz_fit(obs_tbl, m1,meta,av,fit_results, source_id=None,parallax=None,bands_to_ignore=[],plot=True,save=False):
+def plot_kurucz_fit(obs_tbl,meta,av,fit_results, source_id=None,parallax=None,bands_to_ignore=[],plot=True,save=False):
     """
     Fits a stellar model to observed photometry and plots the best-fit SED along with residuals.
 
@@ -139,14 +141,12 @@ def plot_kurucz_fit(obs_tbl, m1,meta,av,fit_results, source_id=None,parallax=Non
     -----------
     obs_tbl : astropy.table.Table or None
         Table containing observed photometry. If None, photometry is retrieved using source_id.
-    m1 : float
-        Mass of the source in solar masses.
     meta : float
         Metallicity of the source.
     av : float
         Extinction in the V band.
     fit_results : tuple
-        Fit results (Teff, Teff_err, R, R_err, redchi2).
+        Fit results (Teff, Teff_err, R, R_err, logg, logg_err, redchi2).
     source_id : int, optional
         Gaia DR3 source ID. Used to retrieve photometry if obs_tbl is None.
     parallax : float, optional
@@ -191,14 +191,12 @@ def plot_kurucz_fit(obs_tbl, m1,meta,av,fit_results, source_id=None,parallax=Non
         mask[bnds.index(band)] = False
 
     # All model parameters
-    teff_fit, teff_err, r_fit, r_err, redchi2 = fit_results
+    teff_fit, teff_err, r_fit, r_err, logg_fit, logg_err, redchi2 = fit_results
 
-    # m1 = m1
-    # meta = meta
-    # av = av
     best_fit_label = create_model_label(teff_fit,teff_err,r_fit,r_err,redchi2)
 
     # Get the best fit model
+    m1 = fr.get_mass(r_fit,logg_fit)
     ms = sr.get_MS_sed(teff_fit,m1,r_fit,meta,parallax)
     ms = sr.redden_model_table(ms, teff_fit, av, bands_table=bands_table)
     flux_model = np.array([ms[bnd][0] for bnd in bands_table['wd_band']]) * wl
