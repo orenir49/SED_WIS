@@ -89,10 +89,11 @@ galex_zp_table = Table({'band': ['GALEX.FUV', 'GALEX.NUV'],
 
 synt_zp_table = Table({'band': ['Johnson.U', 'Johnson.B','Johnson.V','Johnson.R','Johnson.I',
                              'SDSS.u','SDSS.g','SDSS.r','SDSS.i','SDSS.z'],
+                             'col':['u_jkc_flux','b_jkc_flux','v_jkc_flux','r_jkc_flux','i_jkc_flux',
+                           'u_sdss_flux','g_sdss_flux','r_sdss_flux','i_sdss_flux','z_sdss_flux'],
+                           'err_col':['','','','','','','','','',''],
                      'lambda_eff':[3551.05,4369.53,5467.57,6695.83,8568.89,3608.04,4671.78,6141.12,7457.89,8922.78],
                      'width':[657,972,889,2070,2316,541,1064,1055,1102,1164],
-                    'col':['u_jkc_flux','b_jkc_flux','v_jkc_flux','r_jkc_flux','i_jkc_flux',
-                           'u_sdss_flux','g_sdss_flux','r_sdss_flux','i_sdss_flux','z_sdss_flux'],
                   'f0':[3.49719e-9,6.72553e-9,3.5833e-9,1.87529e-9,9.23651e-10,
                         3.75079e-9,5.45476e-9,2.49767e-9,1.38589e-9,8.38585e-10],
                         'm0':[0,0,0,0,0,0,0,0,0,0],
@@ -101,42 +102,56 @@ synt_zp_table = Table({'band': ['Johnson.U', 'Johnson.B','Johnson.V','Johnson.R'
                         'wd_lambda_eff':[3971,4491,5423,6441,8071,
                                          3146,4670,6156,7471,8918]}) ## bedard f0 different than VOSA
 sdss_zp_table = Table({'band': ['SDSS.u','SDSS.g','SDSS.r','SDSS.i','SDSS.z'],
+                       'col':['u_sdss_flux','g_sdss_flux','r_sdss_flux','i_sdss_flux','z_sdss_flux'],
+                       'err_col':['','','','',''],
                       'lambda_eff':[3608.04,4671.78,6141.12,7457.89,8922.78],
                       'width':[541,1064,1055,1102,1164],
-                      'col':['u_sdss_flux','g_sdss_flux','r_sdss_flux','i_sdss_flux','z_sdss_flux'],
                       'f0':[3.75079e-9,5.45476e-9,2.49767e-9,1.38589e-9,8.38585e-10],
                       'm0':[0,0,0,0,0],
                       'wd_f0':[1.1436e-8,4.9894e-9,2.8638e-9,1.9216e-9,1.3343e-9],
                       'wd_lambda_eff':[3146,4670,6156,7471,8918]})
 jkc_zp_table = Table({'band': ['Johnson.U', 'Johnson.B','Johnson.V','Johnson.R','Johnson.I'],
+                      'col':['u_jkc_flux','b_jkc_flux','v_jkc_flux','r_jkc_flux','i_jkc_flux'],
+                      'err_col':['','','','',''],
                       'lambda_eff':[3551.05,4369.53,5467.57,6695.83,8568.89],
                       'width':[657,972,889,2070,2316],
-                      'col':['u_jkc_flux','b_jkc_flux','v_jkc_flux','r_jkc_flux','i_jkc_flux'],
                     'f0':[3.49719e-9,6.72553e-9,3.5833e-9,1.87529e-9,9.23651e-10],
                           'm0':[0,0,0,0,0],
                           'wd_f0':[3.684e-9,6.548e-9,3.804e-9,2.274e-9,1.119e-9],
                           'wd_lambda_eff':[3971,4491,5423,6441,8071]})
 
+hst_zp_table = Table({'band': ['H1','H2','H3','H4'],
+                      'col':['','','',''],
+                        'err_col':['','','',''],
+                        'lambda_eff':[1311,1353,1417,1554],
+                        'width':[4.1,10.3,5.7,5.7],
+                        'f0':[1.0,1.0,1.0,1.0],
+                        'm0':[0,0,0,0],
+                        'wd_f0':[1.0,1.0,1.0,1.0],
+                        'wd_lambda_eff':[1311,1353,1417,1554]})
+
 ############# to get SDSS measurements #############
 # synt_zp_table = jkc_zp_table # to ignore SDSS
 # synt_zp_table = sdss_zp_table
 
-bands_table = Table({'band': list(gaia_zp_table['band'])+list(wise_zp_table['band'])+list(twomass_zp_table['band'])
-                     +list(synt_zp_table['band']) + list(galex_zp_table['band']),
-                     'lambda_eff': list(gaia_zp_table['lambda_eff'])+list(wise_zp_table['lambda_eff'])+list(twomass_zp_table['lambda_eff'])
-                     +list(synt_zp_table['lambda_eff']) + list(galex_zp_table['lambda_eff']),
-                     'f0': list(gaia_zp_table['f0'])+list(wise_zp_table['f0'])+list(twomass_zp_table['f0'])
-                     + list(synt_zp_table['f0']) + list(galex_zp_table['f0']),
-                     'm0': list(gaia_zp_table['m0'])+list(wise_zp_table['m0'])+list(twomass_zp_table['m0']) + list(synt_zp_table['m0']) + list(galex_zp_table['m0']),
-                     'wd_f0': list(gaia_zp_table['wd_f0'])+list(wise_zp_table['wd_f0'])+list(twomass_zp_table['wd_f0']) + list(synt_zp_table['wd_f0']) + list(galex_zp_table['wd_f0']),
-                     'wd_lambda_eff': list(gaia_zp_table['wd_lambda_eff'])+list(wise_zp_table['wd_lambda_eff'])
-                     +list(twomass_zp_table['wd_lambda_eff']) + list(synt_zp_table['wd_lambda_eff']) + list(galex_zp_table['wd_lambda_eff']),
-                     'width': list(gaia_zp_table['width'])+list(wise_zp_table['width'])+list(twomass_zp_table['width'])
-                       + list(synt_zp_table['width']) + list(galex_zp_table['width'])})
+# bands_table = Table({'band': list(gaia_zp_table['band'])+list(wise_zp_table['band'])+list(twomass_zp_table['band'])
+#                      +list(synt_zp_table['band']) + list(galex_zp_table['band']) + list(hst_zp_table['band']),
+#                      'lambda_eff': list(gaia_zp_table['lambda_eff'])+list(wise_zp_table['lambda_eff'])+list(twomass_zp_table['lambda_eff'])
+#                      +list(synt_zp_table['lambda_eff']) + list(galex_zp_table['lambda_eff']) + list(hst_zp_table['lambda_eff']),
+#                      'f0': list(gaia_zp_table['f0'])+list(wise_zp_table['f0'])+list(twomass_zp_table['f0'])
+#                      + list(synt_zp_table['f0']) + list(galex_zp_table['f0']) + list(hst_zp_table['f0']),
+#                      'm0': list(gaia_zp_table['m0'])+list(wise_zp_table['m0'])+list(twomass_zp_table['m0']) + list(synt_zp_table['m0']) + list(galex_zp_table['m0']),
+#                      'wd_f0': list(gaia_zp_table['wd_f0'])+list(wise_zp_table['wd_f0'])+list(twomass_zp_table['wd_f0']) + list(synt_zp_table['wd_f0']) + list(galex_zp_table['wd_f0']) + list(hst_zp_table['wd_f0']),
+#                      'wd_lambda_eff': list(gaia_zp_table['wd_lambda_eff'])+list(wise_zp_table['wd_lambda_eff'])
+#                      +list(twomass_zp_table['wd_lambda_eff']) + list(synt_zp_table['wd_lambda_eff']) + list(galex_zp_table['wd_lambda_eff']) + list(hst_zp_table['wd_lambda_eff']),
+#                      'width': list(gaia_zp_table['width'])+list(wise_zp_table['width'])+list(twomass_zp_table['width'])
+#                        + list(synt_zp_table['width']) + list(galex_zp_table['width']) + list(hst_zp_table['width'])})
+
+bands_table = Table(np.concatenate([gaia_zp_table, wise_zp_table, twomass_zp_table, synt_zp_table, galex_zp_table, hst_zp_table]))
 
 Table.sort(bands_table, 'lambda_eff')
 
-bands_table.add_column(['FUV','NUV','U','u','B','g','G3_BP','V','G3','r','R','i','G3_RP','I','z','J','H','Ks','W1','W2','W3'],name='wd_band')
+bands_table.add_column(['H1','H2','H3','FUV','H4','NUV','U','u','B','g','G3_BP','V','G3','r','R','i','G3_RP','I','z','J','H','Ks','W1','W2','W3'],name='wd_band')
 # bands_table.add_column(['FUV','NUV','U','B','G3_BP','V','G3','R','G3_RP','I','J','H','Ks','W1','W2','W3'],name='wd_band')
 # bands_table.add_column(['FUV','NUV','u','g','G3_BP','G3','r','i','G3_RP','z','J','H','Ks','W1','W2','W3'],name='wd_band')
 
@@ -150,6 +165,17 @@ def get_bands_table():
     """
     return bands_table
 
+def get_lambda_eff(band):
+    """
+    Retrieve the effective wavelength of a band.
+
+    Parameters:
+    band (str): Band name.
+
+    Returns:
+    float: Effective wavelength of the band.
+    """
+    return bands_table[bands_table['band'] == band]['lambda_eff'][0]
 
 def get_synthetic_photometry(source_table):
     """

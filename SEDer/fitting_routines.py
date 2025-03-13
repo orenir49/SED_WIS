@@ -82,17 +82,19 @@ def chi2_ms(obs_tbl, mod_params, bands_to_ignore=[]):
         Chi-square value.
     """
     bands_table = brr.get_bands_table()
+    bands = np.array(list(bands_table['band']))
+    bands = bands[np.isin(bands, obs_tbl.colnames)]
 
     # retrieve model parameters, calculate model flux in all bands
     t, r, logg, meta, av, parallax = mod_params
     model_flux = model_flux_ms(t, r, logg, meta, av, parallax)
 
     # organize the observed fluxes and wavelengths into vectors
-    flux = np.array([obs_tbl[0][bnd] for bnd in bands_table['band']])
-    flux_err = np.array([obs_tbl[0][bnd + '_err'] for bnd in bands_table['band']])
+    flux = np.array([obs_tbl[0][bnd] for bnd in bands])
+    flux_err = np.array([obs_tbl[0][bnd + '_err'] for bnd in bands])
 
     # mask np.nan values (bands that are not observed), and bands to ignore
-    mask = np.isfinite(flux) & ~np.isin(bands_table['band'], bands_to_ignore)
+    mask = np.isfinite(flux) & ~np.isin(bands, bands_to_ignore)
     model_flux = model_flux[mask]
     flux = flux[mask]
     flux_err = flux_err[mask]
@@ -154,12 +156,14 @@ def fit_MS_RTlogg(obs_tbl, meta, av, source_id=None, parallax=None, init_guess=[
         parallax = parallax 
 
     # organize the observed fluxes and wavelengths into vectors
-    wl = np.array(list(bands_table['lambda_eff']))
-    flux = np.array([obs_tbl[0][bnd] for bnd in bands_table['band']])
-    flux_err = np.array([obs_tbl[0][bnd + '_err'] for bnd in bands_table['band']])
+    bands = np.array(list(bands_table['band']))
+    bands = bands[np.isin(bands, obs_tbl.colnames)]
+    wl = np.array([brr.get_lambda_eff(bnd) for bnd in bands])
+    flux = np.array([obs_tbl[0][bnd] for bnd in bands])
+    flux_err = np.array([obs_tbl[0][bnd + '_err'] for bnd in bands])
 
     # mask np.nan values (bands that are not observed), and the bands to ignore
-    mask = np.isfinite(flux) & ~np.isin(bands_table['band'], bands_to_ignore)
+    mask = np.isfinite(flux) & ~np.isin(bands, bands_to_ignore)
 
     # apply the mask to create vectors for fitting
     x = wl[mask]
