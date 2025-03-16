@@ -83,21 +83,24 @@ def chi2_ms(obs_tbl, mod_params, bands_to_ignore=[]):
     """
     bands_table = brr.get_bands_table()
     bands = np.array(list(bands_table['band']))
-    bands = bands[np.isin(bands, obs_tbl.colnames)]
+    obs_bands = bands[np.isin(bands, obs_tbl.colnames)]
 
     # retrieve model parameters, calculate model flux in all bands
     t, r, logg, meta, av, parallax = mod_params
     model_flux = model_flux_ms(t, r, logg, meta, av, parallax)
 
     # organize the observed fluxes and wavelengths into vectors
-    flux = np.array([obs_tbl[0][bnd] for bnd in bands])
-    flux_err = np.array([obs_tbl[0][bnd + '_err'] for bnd in bands])
+    flux = np.array([obs_tbl[0][bnd] for bnd in obs_bands])
+    flux_err = np.array([obs_tbl[0][bnd + '_err'] for bnd in obs_bands])
 
     # mask np.nan values (bands that are not observed), and bands to ignore
-    mask = np.isfinite(flux) & ~np.isin(bands, bands_to_ignore)
-    model_flux = model_flux[mask]
-    flux = flux[mask]
-    flux_err = flux_err[mask]
+    obs_mask = np.isfinite(flux) & ~np.isin(obs_bands, bands_to_ignore)
+    mod_mask = np.isin(bands, obs_tbl.colnames) & np.isin(bands, obs_bands[obs_mask])
+    
+
+    model_flux = model_flux[mod_mask]
+    flux = flux[obs_mask]
+    flux_err = flux_err[obs_mask]
 
     # calculate the chi square value 
     chi2 = np.sum((flux - model_flux)**2 / flux_err**2)
@@ -157,22 +160,22 @@ def fit_MS_RTlogg(obs_tbl, meta, av, source_id=None, parallax=None, init_guess=[
 
     # organize the observed fluxes and wavelengths into vectors
     bands = np.array(list(bands_table['band']))
-    bands = bands[np.isin(bands, obs_tbl.colnames)]
-    wl = np.array([brr.get_lambda_eff(bnd) for bnd in bands])
-    flux = np.array([obs_tbl[0][bnd] for bnd in bands])
-    flux_err = np.array([obs_tbl[0][bnd + '_err'] for bnd in bands])
+    obs_bands = bands[np.isin(bands, obs_tbl.colnames)]
+    wl = np.array([brr.get_lambda_eff(bnd) for bnd in obs_bands])
+    flux = np.array([obs_tbl[0][bnd] for bnd in obs_bands])
+    flux_err = np.array([obs_tbl[0][bnd + '_err'] for bnd in obs_bands])
 
     # mask np.nan values (bands that are not observed), and the bands to ignore
-    mask = np.isfinite(flux) & ~np.isin(bands, bands_to_ignore)
-
+    obs_mask = np.isfinite(flux) & ~np.isin(obs_bands, bands_to_ignore)
+    mod_mask = np.isin(bands, obs_tbl.colnames) & np.isin(bands, obs_bands[obs_mask])
+    
     # apply the mask to create vectors for fitting
-    x = wl[mask]
-    y = flux[mask]
-    y_err = flux_err[mask]
+    x = wl[obs_mask]
+    y = flux[obs_mask]
+    y_err = flux_err[obs_mask]
 
     # define the model function; use the general function, but fix the metallicity, extinction, and parallax
-    model_flux = lambda wl,t,r,logg: model_flux_ms(t,r,logg,meta,av,parallax)[mask]
-
+    model_flux = lambda wl,t,r,logg: model_flux_ms(t,r,logg,meta,av,parallax)[mod_mask]
     # do a chi-square fit
     res = curve_fit(model_flux,x,y,p0=init_guess,bounds=bounds,sigma=y_err,absolute_sigma=True)
     t1_fit,r1_fit,logg_fit = res[0]

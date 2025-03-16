@@ -41,6 +41,10 @@ filename = lib.find(passband='WISE')[0]['filename']
 model = lib.load_model(filename)
 modelW1,modelW2,modelW3,modelW4 = model[0].to_pandas(),model[1].to_pandas(),model[2].to_pandas(),model[3].to_pandas()
 
+filename = lib.find(passband='hst')[0]['filename']
+model = lib.load_model(filename)
+modelH1,modelH2,modelH3,modelH4 = model[0].to_pandas(),model[1].to_pandas(),model[2].to_pandas(),model[3].to_pandas()
+
 def kV():
     ## return Av/A0 for Johnson V band
     ## We work with Av, but the model uses A0. This function gives a quick and dirty conversion factor
@@ -101,7 +105,16 @@ def get_AG_EBPRP(Av,bprp0=0,teff=None): # returns Ag, E(BP-RP) for a given Av an
         teff = get_teff(bprp0)
     ag,abp,arp = get_Gaia_extinction(Av,teff)
     return ag,abp-arp
-    
+
+def get_HST_extinction(Av,bprp0=0,teff=None): # returns extinction in H1, H2, H3, H4 for a given Av, teff
+    if teff is None:
+        teff = get_teff(bprp0)
+    kH1 = get_kX(Av,teff,model=modelH1)
+    kH2 = get_kX(Av,teff,model=modelH2)
+    kH3 = get_kX(Av,teff,model=modelH3)
+    kH4 = get_kX(Av,teff,model=modelH4)
+    return kH1 * Av, kH2 * Av, kH3 * Av, kH4 * Av    
+
 def get_Galex_extinction(Av,bprp0=0,teff=None): # returns AFUV, ANUV for a given Av, teff
     if teff is None:
         teff = get_teff(bprp0)

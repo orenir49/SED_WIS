@@ -178,18 +178,21 @@ def plot_kurucz_fit(obs_tbl,meta,av,fit_results, source_id=None,parallax=None,ba
 
     # Organize the observed data    
     bands_table = brr.get_bands_table()
-    bnds     = list(bands_table['band'])
-    wl       = np.array(list(bands_table['lambda_eff']))
-    flux     = np.array([obs_tbl[0][bnd] for bnd in bnds])
-    flux     = flux * wl
-    flux_err = np.array([obs_tbl[0][bnd + '_err'] for bnd in bnds])
-    flux_err = flux_err * wl
+    bands = np.array(bands_table['band'])
+    obs_bands = bands[np.isin(bands, obs_tbl.colnames)]
+
+    wl = np.array(list(bands_table['lambda_eff']))
+    obs_wl = wl[np.isin(bands, obs_tbl.colnames)]
+    flux     = np.array([obs_tbl[0][bnd] for bnd in obs_bands])
+    flux     = flux * obs_wl
+    flux_err = np.array([obs_tbl[0][bnd + '_err'] for bnd in obs_bands])
+    flux_err = flux_err * obs_wl
 
     # Continue organizing the observed data- separate points used in fit from those ignored
-    mask = np.ones(len(bnds), dtype=bool)
-    for band in bands_to_ignore:
-        mask[bnds.index(band)] = False
-
+    # mask np.nan values (bands that are not observed), and bands to ignore
+    obs_mask = np.isfinite(flux) & ~np.isin(obs_bands, bands_to_ignore)
+    mod_mask = np.isin(bands, obs_tbl.colnames) 
+    
     # All model parameters
     teff_fit, teff_err, r_fit, r_err, logg_fit, logg_err, redchi2 = fit_results
 
@@ -207,8 +210,8 @@ def plot_kurucz_fit(obs_tbl,meta,av,fit_results, source_id=None,parallax=None,ba
     ax = gs.subplots(sharex=True)
 
     # pass axes to plotting routines (best fit vs data, residuals)
-    plot_data_vs_model(wl,flux,flux_err,mask,wl,flux_model,ax[0],best_fit_label)
-    plot_residuals(wl,flux,flux_err,mask,wl,flux_model,ax[1])
+    plot_data_vs_model(obs_wl,flux,flux_err,obs_mask,wl,flux_model,ax[0],best_fit_label)
+    plot_residuals(obs_wl,flux,flux_err,obs_mask,obs_wl,flux_model[mod_mask],ax[1])
 
     ax[1].set_xscale('log')
     ax[1].set_xlabel(r'Wavelength $(\AA)$',fontsize=12)

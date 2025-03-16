@@ -116,13 +116,15 @@ def get_blackbody_sed(teff, radius, parallax, parallax_err, Av, bands_table=None
     Au, Ag, Ar, Ai, Az = extinction_routines.get_SDSS_extinction(Av, 0, teff)
     AG, AGbp, AGrp     = extinction_routines.get_Gaia_extinction(Av, 0, teff)
     AFUV, ANUV         = extinction_routines.get_Galex_extinction(Av, 0, teff)
+    AH1, AH2, AH3, AH4 = extinction_routines.get_HST_extinction(Av, 0, teff)
 
     ext_dict = {'2MASS.J': AJ, '2MASS.H': AH, '2MASS.Ks': AKs, 'GALEX.FUV': AFUV, 'GALEX.NUV': ANUV, 'GAIA3.G': AG, 'GAIA3.Gbp': AGbp, 'GAIA3.Grp': AGrp,
                 'WISE.W1': AW1, 'WISE.W2': AW2, 'WISE.W3': AW3, 'WISE.W4': AW4, 'Johnson.U': AU, 'Johnson.B': AB, 'Johnson.V': AV, 'Johnson.R': AR, 'Johnson.I': AI,
-                'SDSS.u': Au, 'SDSS.g': Ag, 'SDSS.r': Ar, 'SDSS.i': Ai, 'SDSS.z': Az}
+                'SDSS.u': Au, 'SDSS.g': Ag, 'SDSS.r': Ar, 'SDSS.i': Ai, 'SDSS.z': Az,
+                'H1': AH1, 'H2': AH2, 'H3': AH3, 'H4': AH4}
 
     for b in bands:
-        filepath      = os.path.join('..', 'data', 'VOSA', 'filters', b + '.dat')
+        filepath      = os.path.join('.', 'models', 'filters', b + '.dat')
         filter_tbl    = Table.read(filepath, format='ascii', names=['wavelength', 'transmission'])
         wavelength    = filter_tbl['wavelength'].data * u.AA
         transmission  = filter_tbl['transmission'].data 
@@ -404,10 +406,12 @@ def redden_model_table(mod_tbl,teff,av, bands_table=None):
     Au, Ag, Ar, Ai, Az = extinction_routines.get_SDSS_extinction(av, 0, teff)
     AG, AGbp, AGrp     = extinction_routines.get_Gaia_extinction(av, 0, teff)
     AFUV, ANUV         = extinction_routines.get_Galex_extinction(av, 0, teff)
+    AH1, AH2, AH3, AH4 = extinction_routines.get_HST_extinction(av, 0, teff)
     
     ext_dict = {'2MASS.J': AJ, '2MASS.H': AH, '2MASS.Ks': AKs, 'GALEX.FUV': AFUV, 'GALEX.NUV': ANUV, 'GAIA3.G': AG, 'GAIA3.Gbp': AGbp, 'GAIA3.Grp': AGrp,
                 'WISE.W1': AW1, 'WISE.W2': AW2, 'WISE.W3': AW3, 'WISE.W4': AW4, 'Johnson.U': AU, 'Johnson.B': AB, 'Johnson.V': AV, 'Johnson.R': AR, 'Johnson.I': AI,
-                'SDSS.u': Au, 'SDSS.g': Ag, 'SDSS.r': Ar, 'SDSS.i': Ai, 'SDSS.z': Az}
+                'SDSS.u': Au, 'SDSS.g': Ag, 'SDSS.r': Ar, 'SDSS.i': Ai, 'SDSS.z': Az,
+                'H1': AH1, 'H2': AH2, 'H3': AH3, 'H4': AH4}
     for band, col in zip(bands_table['band'], bands_table['wd_band']):
         mod_tbl[col][0] = mod_tbl[col][0] * 10**(-0.4 * ext_dict[band])
         
