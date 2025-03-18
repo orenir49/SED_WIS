@@ -24,14 +24,14 @@ def get_distance(parallax,parallax_err):
     return (1000/parallax) * pc.value , (1000/parallax**2)*parallax_err * pc.value
 
 def get_orbital_parameters(source_id):
-    query = f'''SELECT parallax, period, eccentricity FROM gaiadr3.nss_two_body_orbit WHERE source_id = {int(source_id)}'''
+    query = f'''SELECT parallax, parallax_error, period, period_error, eccentricity, eccentricity_error FROM gaiadr3.nss_two_body_orbit WHERE source_id = {int(source_id)}'''
     result = Gaia.launch_job(query)
     result = result.get_results()
     if len(result) > 0:
-        return result['parallax'][0],result['period'][0],result['eccentricity'][0]
+        return result['parallax'][0], result['parallax_error'][0], result['period'][0], result['period_error'][0], result['eccentricity_error'][0]
     else:
         print('Source not in NSS')
-        return np.nan, np.nan, np.nan
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 
 
 # -------------------------------------------------------
 #                 § SED modelling routines
