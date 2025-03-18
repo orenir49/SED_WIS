@@ -501,7 +501,7 @@ def get_photometry(source_table, snr_lim=10):
             snr = tbl[col] / tbl[col + '_err']
             for i in range(len(tbl)):
                 if snr[i] > snr_lim:  # if SNR > snr_lim, set error to 10% of flux: minimal error to account for model uncertainties
-                    tbl[i][col + '_err'] = 0.1 * tbl[i][col]
+                    tbl[i][col + '_err'] = (1/snr_lim) * tbl[i][col]
 
     tbl.sort('idx')
     return tbl
@@ -550,8 +550,8 @@ def get_photometry_single_source(source_id, snr_lim=10):
         for col in flux_cols:
             snr = tbl[col] / tbl[col + '_err']
             for i in range(len(tbl)):
-                if snr[i] > 10:  # if SNR > 10, set error to 10% of flux: minimal error to account for model uncertainties
-                    tbl[i][col + '_err'] = 0.1 * tbl[i][col]
+                if snr[i] > snr_lim:  # if SNR > 10, set error to 10% of flux: minimal error to account for model uncertainties
+                    tbl[i][col + '_err'] = (1/snr_lim) * tbl[i][col]
 
     band_status = {band: ('ok' if np.isfinite(tbl[band][0]) else 'no_data') for band in flux_cols}
 
