@@ -199,7 +199,7 @@ def plot_kurucz_fit(obs_tbl,meta,av,fit_results, source_id=None,parallax=None,ba
     best_fit_label = create_model_label(teff_fit,teff_err,r_fit,r_err,redchi2)
 
     # Get the best fit model
-    m1 = fr.get_mass(r_fit,logg_fit)
+    m1 = fr.get_mass(logg_fit,r_fit)
     ms = sr.get_MS_sed(teff_fit,m1,r_fit,meta,parallax)
     ms = sr.redden_model_table(ms, teff_fit, av, bands_table=bands_table)
     flux_model = np.array([ms[bnd][0] for bnd in bands_table['wd_band']]) * wl
