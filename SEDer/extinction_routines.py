@@ -6,6 +6,7 @@ from urllib import request
 import ssl 
 from astroquery.gaia import Gaia
 import os 
+import shutil
 
 lib = PrecomputedModel()
 
@@ -40,6 +41,14 @@ modelJ,modelH,modelKs = model[0].to_pandas(),model[1].to_pandas(),model[2].to_pa
 filename = lib.find(passband='WISE')[0]['filename']
 model = lib.load_model(filename)
 modelW1,modelW2,modelW3,modelW4 = model[0].to_pandas(),model[1].to_pandas(),model[2].to_pandas(),model[3].to_pandas()
+
+model_dir = os.path.dirname(filename)
+if not os.path.exists(os.path.join(model_dir,'hst_kurucz_f99_a0_teff.ecsv')):
+    default_dir = os.path.join('.','models','hst_kurucz_f99_a0_teff.ecsv')
+    if not os.path.exists(default_dir):
+        print('Download the HST extinction model from github to SEDer/models/')
+    else:
+        shutil.copy(default_dir,os.path.join(model_dir,'hst_kurucz_f99_a0_teff.ecsv'))
 
 filename = lib.find(passband='hst')[0]['filename']
 model = lib.load_model(filename)

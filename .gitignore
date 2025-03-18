@@ -2,4 +2,5 @@
 .gitignore
 SED_fit.ipynb
 SEDer.egg-info
-SEDer/models/kurucz_spectra
+SEDer/models/kurucz_spectra__pycache__/
+*.pyc
