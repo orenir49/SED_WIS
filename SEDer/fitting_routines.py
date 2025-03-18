@@ -191,7 +191,7 @@ def chi2_rg(obs_tbl, mod_params, bands_to_ignore=[]):
 # -------------------------------------------------------
 #                 § SED fitting routines
 # -------------------------------------------------------
-def fit_MS_RTlogg(obs_tbl, meta, av, source_id=None, parallax=None, init_guess=[6000, 1, 4], bounds=[(3500, 0.1, 1), (10000, 5, 5)], bands_to_ignore=[]):
+def fit_MS_RTlogg(obs_tbl, meta, av,  init_guess=[6000, 1, 4], bounds=[(3500, 0.1, 1), (10000, 5, 5)], bands_to_ignore=[]):
     """
     Fit the SED of a source using Kurucz models.
     Fitting parameters are effective temperature (Teff), radius (R) and surface gravity (logg).
@@ -205,10 +205,6 @@ def fit_MS_RTlogg(obs_tbl, meta, av, source_id=None, parallax=None, init_guess=[
         Metallicity of the source.
     av : float
         Extinction in the V band.
-    source_id : int, optional
-        Gaia DR3 source ID. Used to retrieve photometry if obs_tbl is None.
-    parallax : float, optional
-        Parallax in milliarcsec. If not provided, use value from obs_tbl.
     init_guess : list, optional
         Initial guess for the fitting parameters (Teff, R, logg). Default is [6000, 1, 4].
     bounds : list of tuples, optional
@@ -230,15 +226,17 @@ def fit_MS_RTlogg(obs_tbl, meta, av, source_id=None, parallax=None, init_guess=[
 
     bands_table = brr.get_bands_table()
 
-    # Get the observed data, if obs_tbl was not provided
-    if obs_tbl is None:
-        obs_tbl, flags = brr.get_photometry_single_source(source_id)
+    # # Get the observed data, if obs_tbl was not provided
+    # if obs_tbl is None:
+    #     obs_tbl, flags = brr.get_photometry_single_source(source_id)
 
-    # fixed parameters for the model
-    if parallax is None:
-        parallax = obs_tbl[0]['parallax']
-    else: 
-        parallax = parallax 
+    # # fixed parameters for the model
+    # if parallax is None:
+    #     parallax = obs_tbl[0]['parallax']
+    # else: 
+    #     parallax = parallax 
+
+    parallax = obs_tbl['parallax']
 
     # organize the observed fluxes and wavelengths into vectors
     bands = np.array(list(bands_table['band']))
@@ -272,7 +270,7 @@ def fit_MS_RTlogg(obs_tbl, meta, av, source_id=None, parallax=None, init_guess=[
 
 
 
-def fit_RG_RTlogg(obs_tbl, meta, av, source_id=None, parallax=None, init_guess=[6000, 10, 4], bounds=[(3500, 0.1, 1), (10000, 15, 5)], bands_to_ignore=[]):
+def fit_RG_RTlogg(obs_tbl, meta, av, init_guess=[6000, 10, 4], bounds=[(3500, 0.1, 1), (10000, 15, 5)], bands_to_ignore=[]):
     """
     Fit the SED of a source using Kurucz models.
     Fitting parameters are effective temperature (Teff), radius (R) and surface gravity (logg).
@@ -286,10 +284,6 @@ def fit_RG_RTlogg(obs_tbl, meta, av, source_id=None, parallax=None, init_guess=[
         Metallicity of the source.
     av : float
         Extinction in the V band.
-    source_id : int, optional
-        Gaia DR3 source ID. Used to retrieve photometry if obs_tbl is None.
-    parallax : float, optional
-        Parallax in milliarcsec. If not provided, use value from obs_tbl.
     init_guess : list, optional
         Initial guess for the fitting parameters (Teff, R, logg). Default is [6000, 1, 4].
     bounds : list of tuples, optional
@@ -311,15 +305,17 @@ def fit_RG_RTlogg(obs_tbl, meta, av, source_id=None, parallax=None, init_guess=[
 
     bands_table = brr.get_bands_table()
 
-    # Get the observed data, if obs_tbl was not provided
-    if obs_tbl is None:
-        obs_tbl, flags = brr.get_photometry_single_source(source_id)
+    # # Get the observed data, if obs_tbl was not provided
+    # if obs_tbl is None:
+    #     obs_tbl, flags = brr.get_photometry_single_source(source_id)
 
-    # fixed parameters for the model
-    if parallax is None:
-        parallax = obs_tbl[0]['parallax']
-    else: 
-        parallax = parallax 
+    # # fixed parameters for the model
+    # if parallax is None:
+    #     parallax = obs_tbl[0]['parallax']
+    # else: 
+    #     parallax = parallax 
+
+    parallax = obs_tbl['parallax']
 
     # organize the observed fluxes and wavelengths into vectors
     bands = np.array(list(bands_table['band']))
