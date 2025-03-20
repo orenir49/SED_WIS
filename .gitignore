@@ -4,3 +4,5 @@ SED_fit.ipynb
 SEDer.egg-info
 SEDer/models/kurucz_spectra__pycache__/
 *.pyc
+SEDer/models/kurucz_spectra
+notebooks/hst_mock_fits.ipynb

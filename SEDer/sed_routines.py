@@ -11,6 +11,8 @@ import os
 from SEDer import band_retrieval_routines as brr
 # This is our extinction routines
 from SEDer import extinction_routines as extinction_routines
+# This is our fitting routines
+from SEDer import fitting_routines as fr
 import sys
 
 
@@ -44,6 +46,7 @@ def get_script_path():
 current_path = get_script_path()
 
 kurucz = Table(np.genfromtxt(os.path.join(current_path, 'models', 'kurucz_sed.dat'), names=True, dtype=None))
+koester = Table(np.genfromtxt(os.path.join(current_path, 'models', 'koester_sed.dat'), names=True, dtype=None))
 co_da = Table(np.genfromtxt(os.path.join(current_path, 'models', 'CO_DA.dat'), names=True, dtype=None))
 co_db = Table(np.genfromtxt(os.path.join(current_path, 'models', 'CO_DB.dat'), names=True, dtype=None))
 he_da = Table(np.genfromtxt(os.path.join(current_path, 'models', 'He_wd.dat'), names=True, dtype=None))
@@ -312,18 +315,15 @@ def get_wd_bedard_sed(teff, m, parallax, core='CO', atm='H', bands_table=None):
     return model_table
 
 
-def get_wd_koester_sed(teff, m, parallax, koester_wd_model, core='CO', atm='H', bands_table=None):
+def get_wd_koester_sed(teff, logg, parallax, bands_table=None):
     """
     Calculate the SED for a white dwarf using Koester models.
 
     Parameters:
     teff (float): Effective temperature of the star in Kelvin.
-    m (float): Mass of the star in solar masses.
+    logg (float): Surface gravity of the star in cm/s^2.
     parallax (float): Parallax of the star in milliarcseconds.
-    koester_wd_model (str): Path to the Koester WD model file.
-    core (str): Core type ('CO'). Default is 'CO'.
-    atm (str): Atmosphere type ('H', 'He'). Default is 'H'.
-
+    
     Returns:
     Table: Table containing the modeled fluxes for different bands.
     """
@@ -331,11 +331,11 @@ def get_wd_koester_sed(teff, m, parallax, koester_wd_model, core='CO', atm='H', 
         bands_table = brr.get_bands_table()
 
     # Use MR relation specific to core and atmosphere type
-    logg = logg_from_MR_relation(teff, m, core, atm)
-    r = np.sqrt(G.cgs * m * M_sun.cgs / (10**logg) / (u.cm / u.s**2)) / R_sun.cgs  # in R_sun
+    mass = mass_from_MR_relation(teff, logg, 'CO', 'H')
+    r = np.sqrt(G.cgs * mass * M_sun.cgs / (10**logg) / (u.cm / u.s**2)) / R_sun.cgs  # in R_sun
 
     # Interpolate Teff, Logg on the Koester model to get SED
-    model = np.genfromtxt(koester_wd_model, names=True, dtype=None)
+    model = koester
     model_table = Table(data=[[np.nan] for band in bands_table['wd_band']], names=bands_table['wd_band'])
     
     for wd_band in bands_table['wd_band']:
@@ -381,6 +381,43 @@ def logg_from_MR_relation(teff, m, core='CO', atm='H'):
     interp = LinearNDInterpolator(np.array([wd['Teff'], wd['Mass']]).T, wd['log_g'])
     logg = interp([teff, m])[0]
     return logg
+
+
+def mass_from_MR_relation(teff, logg, core='CO', atm='H'):
+    """
+    Calculate the mass for a white dwarf given its effective temperature, surface gravity, core type, and atmosphere type.
+
+    Parameters:
+    teff (float): Effective temperature in Kelvin.
+    logg (float): Surface gravity in cm/s^2.
+    core (str): Core type ('He', 'CO', 'ONe'). Default is 'CO'.
+    atm (str): Atmosphere type ('H', 'He'). Default is 'H'.
+
+    Returns:
+    float: Mass in solar masses.
+    """
+    if core == 'He':
+        wd = he_da.copy()
+    elif core == 'CO':
+        if atm == 'H':
+            wd = co_da.copy()
+        elif atm == 'He':
+            wd = co_db.copy()
+        else:
+            print('atm either H or He')
+            return None
+    elif core == 'ONe':
+        if atm == 'H':
+            wd = one_da.copy()
+        elif atm == 'He':
+            wd = one_db.copy()
+        else:
+            print('atm either H or He')
+            return None
+
+    interp = LinearNDInterpolator(np.array([wd['Teff'], wd['log_g']]).T, wd['Mass'])
+    m = interp([teff, logg])[0]
+    return m
 
 
 def redden_model_table(mod_tbl,teff,av, bands_table=None):
