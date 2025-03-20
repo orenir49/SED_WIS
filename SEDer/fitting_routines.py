@@ -222,7 +222,6 @@ def fit_MS_RTlogg(obs_tbl, meta, av,  init_guess=[6000, 1, 4], bounds=[(3500, 0.
     tuple
         A tuple containing the fitted parameters (Teff, R, logg) and the reduced chi-square value.
     """
-    assert not (obs_tbl is None and source_id is None), "obs_tbl and source_id cannot be None at the same time"
 
     bands_table = brr.get_bands_table()
 
@@ -301,7 +300,6 @@ def fit_RG_RTlogg(obs_tbl, meta, av, init_guess=[6000, 10, 4], bounds=[(3500, 0.
     tuple
         A tuple containing the fitted parameters (Teff, R, logg) and the reduced chi-square value.
     """
-    assert not (obs_tbl is None and source_id is None), "obs_tbl and source_id cannot be None at the same time"
 
     bands_table = brr.get_bands_table()
 
