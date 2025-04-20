@@ -221,3 +221,89 @@ def plot_kurucz_fit(obs_tbl,meta,av,fit_results, source_id=None,parallax=None,ba
         fig.savefig(f'../img/kurucz_{source_id}.png')
     if not plot:
         plt.close(fig)
+
+def plot_bb_fit(obs_tbl,av,fit_results, source_id=None,parallax=None,bands_to_ignore=[],plot=True,save=False):
+    """
+    Fits a blackbody model to observed photometry and plots the best-fit SED along with residuals.
+
+    Parameters:
+    -----------
+    obs_tbl : astropy.table.Table or None
+        Table containing observed photometry. If None, photometry is retrieved using source_id.
+    av : float
+        Extinction in the V band.
+    fit_results : tuple
+        Fit results (Teff, Teff_err, R, R_err, logg, logg_err, redchi2).
+    source_id : int, optional
+        Gaia DR3 source ID. Used to retrieve photometry if obs_tbl is None.
+    parallax : float, optional
+        Parallax in milliarcsec. If not provided, use value from obs_tbl.
+    bands_to_ignore : list, optional
+        List of bands to exclude from fitting. Default is [].
+        Options: ['GALEX.FUV', 'GALEX.NUV', 'Johnson.U', 'SDSS.u', 'Johnson.B', 'SDSS.g',
+                  'GAIA3.Gbp', 'Johnson.V', 'GAIA3.G', 'SDSS.r', 'Johnson.R', 'SDSS.i',
+                  'GAIA3.Grp', 'Johnson.I', 'SDSS.z', '2MASS.J', '2MASS.H', '2MASS.Ks', 'WISE.W1',
+                  'WISE.W2', 'WISE.W3']
+    plot : bool, optional
+        If True, displays the plot. Default is True.
+    save : bool, optional
+        If True, saves the plot as an image. Default is False.
+
+    Returns:
+    --------
+    None
+    """
+    assert not (obs_tbl is None and source_id is None), "Both obs_tbl and source_id cannot be None at the same time"
+    
+    # Get the observed data, if obs_tbl was not provided
+    if obs_tbl is None:
+        obs_tbl = brr.get_photometry_single_source(source_id)
+
+    # Override the obs_tbl parallax if provided seperately
+    if parallax is None:
+        parallax = obs_tbl[0]['parallax']
+
+    # Organize the observed data    
+    bands_table = brr.get_bands_table()
+    bands = np.array(bands_table['band'])
+    obs_bands = bands[np.isin(bands, obs_tbl.colnames)]
+
+    wl = np.array(list(bands_table['lambda_eff']))
+    obs_wl = wl[np.isin(bands, obs_tbl.colnames)]
+    flux     = np.array([obs_tbl[0][bnd] for bnd in obs_bands])
+    flux     = flux * obs_wl
+    flux_err = np.array([obs_tbl[0][bnd + '_err'] for bnd in obs_bands])
+    flux_err = flux_err * obs_wl
+
+    # Continue organizing the observed data- separate points used in fit from those ignored
+    # mask np.nan values (bands that are not observed), and bands to ignore
+    obs_mask = np.isfinite(flux) & ~np.isin(obs_bands, bands_to_ignore)
+    mod_mask = np.isin(bands, obs_tbl.colnames)
+
+    # All model parameters
+    teff_fit, teff_err, r_fit, r_err, redchi2 = fit_results
+
+    best_fit_label = create_model_label(teff_fit,teff_err,r_fit,r_err,redchi2)
+
+    # Get the best fit model
+    bb = sr.get_bb_sed(teff_fit,r_fit,parallax)
+    bb = sr.redden_model_table(bb, teff_fit, av, bands_table=bands_table)
+    flux_model = np.array([bb[bnd][0] for bnd in bands_table['wd_band']]) * wl
+
+    # define the figure
+    fig = plt.figure(figsize=(1.5*3.5,3.5),tight_layout=True, dpi=400)
+    gs = fig.add_gridspec(2, 1, height_ratios=[3, 1], hspace=0)
+    ax = gs.subplots(sharex=True)
+
+    # pass axes to plotting routines (best fit vs data, residuals)
+    plot_data_vs_model(obs_wl,flux,flux_err,obs_mask,wl,flux_model,ax[0],best_fit_label)
+    plot_residuals(obs_wl,flux,flux_err,obs_mask,obs_wl,flux_model[mod_mask],ax[1])
+
+    ax[1].set_xscale('log')
+    ax[1].set_xlabel(r'Wavelength $(\AA)$',fontsize=12)
+    ax[1].tick_params(axis='x', which='major', labelsize=10)
+    fig.show()
+    if save:
+        fig.savefig(f'../img/blackbody_{source_id}.png')
+    if not plot:
+        plt.close(fig)

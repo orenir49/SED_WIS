@@ -21,9 +21,9 @@ import sys
 #                 § Utility routines
 # -------------------------------------------------------
 
-def get_distance(parallax,parallax_err):
+def get_distance(parallax):
     ## distance in meters calculated from parallax in mas
-    return (1000/parallax) * pc.value , (1000/parallax**2)*parallax_err * pc.value
+    return (1000/parallax) * pc.value 
 
 def get_orbital_parameters(source_id):
     query = f'''SELECT parallax, parallax_error, period, period_error, eccentricity, eccentricity_error FROM gaiadr3.nss_two_body_orbit WHERE source_id = {int(source_id)}'''
@@ -45,6 +45,7 @@ def get_script_path():
     return os.path.dirname(os.path.realpath(__file__))
 current_path = get_script_path()
 
+bb = Table(np.genfromtxt(os.path.join(current_path, 'models', 'bb_sed.dat'), names=True, dtype=None))
 kurucz = Table(np.genfromtxt(os.path.join(current_path, 'models', 'kurucz_sed.dat'), names=True, dtype=None))
 koester = Table(np.genfromtxt(os.path.join(current_path, 'models', 'koester_sed.dat'), names=True, dtype=None))
 co_da = Table(np.genfromtxt(os.path.join(current_path, 'models', 'CO_DA.dat'), names=True, dtype=None))
@@ -76,70 +77,6 @@ def blackbody_spectrum(wavelength, temperature):
     ## wavelength and temperature must have astropy units
     f = (2 * np.pi * h.cgs * c.cgs**2 / wavelength.cgs**5) / (np.exp(h.cgs * c.cgs / (wavelength.cgs * k_B.cgs * temperature)) - 1)
     return f.to(u.erg / u.s / u.cm**2 / u.AA)
-
-
-def get_blackbody_sed(teff, radius, parallax, parallax_err, Av, bands_table=None):
-    """
-      ** Function previously known as blackbody_mod_table **
-    Calculate the blackbody flux table for a star given its effective temperature, radius, parallax, parallax error, and extinction.
-
-    Parameters:
-    -----------
-    teff : float
-        Effective temperature of the star in Kelvin.
-    radius : float
-        Radius of the star in solar radii.
-    parallax : float
-        Parallax of the star in milliarcseconds.
-    parallax_err : float
-        Error in the parallax measurement in milliarcseconds.
-    Av : float
-        Extinction in the V band.
-
-    Returns:
-    --------
-    mod_tbl : astropy.table.Table
-        Table containing the modeled fluxes for different bands, corrected for extinction.
-
-    Notes:
-    ------
-    This function uses several extinction models to correct the fluxes for different bands. The bands considered are from 2MASS, GALEX, GAIA, WISE, Johnson, and SDSS surveys.
-    """
-    if bands_table is None:
-        bands_table = brr.get_bands_table()
-
-    bands    = list(bands_table['band'])
-    mod_tbl  = Table(dict(zip(bands, [[float(1)] for i in range(len(bands))])))
-    d, d_err = get_distance(parallax, parallax_err)
-    radius   = radius * R_sun.value
-
-    AW1, AW2, AW3, AW4 = extinction_routines.get_WISE_extinction(Av, 0, teff)
-    AJ, AH, AKs        = extinction_routines.get_2MASS_extinction(Av, 0, teff)
-    AU, AB, AV, AR, AI = extinction_routines.get_Johnson_extinction(Av, 0, teff)
-    Au, Ag, Ar, Ai, Az = extinction_routines.get_SDSS_extinction(Av, 0, teff)
-    AG, AGbp, AGrp     = extinction_routines.get_Gaia_extinction(Av, 0, teff)
-    AFUV, ANUV         = extinction_routines.get_Galex_extinction(Av, 0, teff)
-    AH1, AH2, AH3, AH4 = extinction_routines.get_HST_extinction(Av, 0, teff)
-
-    ext_dict = {'2MASS.J': AJ, '2MASS.H': AH, '2MASS.Ks': AKs, 'GALEX.FUV': AFUV, 'GALEX.NUV': ANUV, 'GAIA3.G': AG, 'GAIA3.Gbp': AGbp, 'GAIA3.Grp': AGrp,
-                'WISE.W1': AW1, 'WISE.W2': AW2, 'WISE.W3': AW3, 'WISE.W4': AW4, 'Johnson.U': AU, 'Johnson.B': AB, 'Johnson.V': AV, 'Johnson.R': AR, 'Johnson.I': AI,
-                'SDSS.u': Au, 'SDSS.g': Ag, 'SDSS.r': Ar, 'SDSS.i': Ai, 'SDSS.z': Az,
-                'H1': AH1, 'H2': AH2, 'H3': AH3, 'H4': AH4}
-
-    for b in bands:
-        filepath      = os.path.join('.', 'models', 'filters', b + '.dat')
-        filter_tbl    = Table.read(filepath, format='ascii', names=['wavelength', 'transmission'])
-        wavelength    = filter_tbl['wavelength'].data * u.AA
-        transmission  = filter_tbl['transmission'].data 
-        flux          = blackbody_spectrum(wavelength, teff * u.K)
-        flux          = np.dot(flux, transmission)
-        flux         /= np.sum(transmission)
-        flux          = flux * (radius / d)**2
-        mod_tbl[0][b] = flux.value
-        mod_tbl[b].unit = flux.unit 
-        mod_tbl[b]      = mod_tbl[b] * 10**(-0.4 * ext_dict[b])
-
-    return mod_tbl
 
 
 def get_MS_sed(teff, m1, r1, meta, parallax, bands_table=None, return_logg=False):
@@ -203,55 +140,41 @@ def get_MS_sed(teff, m1, r1, meta, parallax, bands_table=None, return_logg=False
         return model_table
 
 
-def get_RG_sed(teff, m1, r1, meta, parallax, bands_table=None):
+def get_bb_sed(teff, r1, parallax, bands_table=None):
     """
-    Calculate the SED for a red giant star using Kurucz models.
+    Calculate the SED for a blackbody star.
 
     Parameters:
-    -----------
-    teff : float
-        Effective temperature of the star in Kelvin.
-    m1 : float
-        Mass of the star in solar masses.
-    r1 : float
-        Radius of the star in solar radii.
-    meta : float
-        Metallicity of the star.
-    parallax : float
-        Parallax of the star in milliarcseconds.
-    bands_table : Table, optional
-        Table containing band information. If None, it will be retrieved using band_retrieval_routines.
+    teff (float): Effective temperature of the star in Kelvin.
+    r1 (float): Radius of the star in solar radii.
+    parallax (float): Parallax of the star in milliarcseconds.
+    bands_table (Table, optional): Table containing band information. If None, it will be retrieved using band_retrieval_routines.
 
     Returns:
-    --------
-    model_table : Table
-        Table containing the modeled fluxes for different bands.
+    Table: Table containing the modeled fluxes for different bands.
     """
-
-    kurucz_tgrid = np.unique(kurucz['teff'])
-    kurucz_ggrid = np.unique(kurucz['logg'])
-    kurucz_metagrid = np.unique(kurucz['meta'])
+    if bands_table is None:
+        bands_table = brr.get_bands_table()
+    
+    bb_tgrid = np.unique(bb['teff'])
 
     if bands_table is None:
         bands_table = brr.get_bands_table()
-        
-    kur = kurucz.copy()
+
     model_table = Table(data=[[np.nan] for band in bands_table['wd_band']], names=bands_table['wd_band'])
-    logg = np.log10((G.cgs * m1 * M_sun.cgs / (r1 * R_sun.cgs)**2).value)
-    j_t, j_g, j_meta = np.searchsorted(kurucz_tgrid, teff), np.searchsorted(kurucz_ggrid, logg), np.searchsorted(kurucz_metagrid, meta)
-
-    if j_t == 0 or j_g == 0 or j_meta == 0:
-        return model_table
-    elif j_t == len(kurucz_tgrid) or j_g == len(kurucz_ggrid) or j_meta == len(kurucz_metagrid):
+    
+    j_t = np.searchsorted(bb_tgrid, teff)
+    
+    if j_t == 0 or j_t == len(bb_tgrid):
         return model_table
 
-    kur = kur[np.isin(kur['teff'], [kurucz_tgrid[j_t-1], kurucz_tgrid[j_t]])]
-    kur = kur[np.isin(kur['logg'], [kurucz_ggrid[j_g-1], kurucz_ggrid[j_g]])]
-    kur = kur[np.isin(kur['meta'], [kurucz_metagrid[j_meta-1], kurucz_metagrid[j_meta]])]
-
+    bbody = bb.copy()
+    bbody = bbody[np.isin(bbody['teff'], [bb_tgrid[j_t-1], bb_tgrid[j_t]])]
+    
     for band in bands_table['wd_band']:
-        interp = LinearNDInterpolator(np.array([kur['teff'], kur['logg'], kur['meta']]).T, kur[band])
-        model_table[band] = interp([teff, logg, meta])[0] * (r1 * R_sun.cgs * parallax / 1000 / pc.cgs)**2
+        # interp = LinearNDInterpolator(np.array([bbody['teff']]).T, bbody[band])
+        # model_table[band] = interp([teff])[0] * (r1 * R_sun.cgs * parallax / 1000 / pc.cgs)**2
+        model_table[band] = np.interp(teff, bb_tgrid, bb[band]) * (r1 * R_sun.cgs * parallax / 1000 / pc.cgs)**2
         model_table[band].unit = u.erg / u.s / u.cm**2 / u.AA
 
     return model_table

@@ -19,9 +19,9 @@ from SEDer import sed_routines as sr
 #                 § Utility routines
 # -------------------------------------------------------
 
-def get_distance(parallax,parallax_err):
+def get_distance(parallax):
     ## distance in meters calculated from parallax in mas
-    return (1000/parallax) * pc.value , (1000/parallax**2)*parallax_err * pc.value
+    return (1000/parallax) * pc.value 
 
 def get_logg(mass,radius):
     return np.log10((G.cgs*mass*M_sun.cgs/(radius*R_sun.cgs)**2 / u.cm/u.s**2).value)
@@ -109,23 +109,17 @@ def chi2_ms(obs_tbl, mod_params, bands_to_ignore=[]):
 
 
 # -------------------------------------------------------
-#                 § Model routines - RG
+#                 § Model routines - BB
 # -------------------------------------------------------
 
-def model_flux_rg(t, r, logg, meta, av, parallax):
+def model_flux_bb(t, r, av, parallax):
     """
-    Calculate the model flux vector for a given effective temperature, radius, logg,  metallicity, extinction, and parallax.
+    Calculate the model flux vector for a given effective temperature, radius, extinction, and parallax.
     The model flux is reddened using the provided extinction value.
     Parameters:
     -----------
     t : float
         Effective temperature of the source.
-    r : float
-        Radius of the source.
-    logg : float    
-        Surface gravity of the source (between 0 and 5 for Kurucz).
-    meta : float
-        Metallicity of the source (dex).
     av : float
         Extinction in the V band.
     parallax : float
@@ -137,14 +131,12 @@ def model_flux_rg(t, r, logg, meta, av, parallax):
         Model flux vector.
     """
     bands_table = brr.get_bands_table()
-    m1 = get_mass(logg,r)
-    rg = sr.get_RG_sed(t,m1,r,meta,parallax) # get the model flux
-    rg = sr.redden_model_table(rg,t,av) # apply reddening
-    model_flux = np.array([rg[bnd][0] for bnd in bands_table['wd_band']]) # organize the model fluxes into a vector
+    bb = sr.get_bb_sed(t,r,parallax) # get the model flux
+    bb = sr.redden_model_table(bb,t,av) # apply reddening
+    model_flux = np.array([bb[bnd][0] for bnd in bands_table['wd_band']]) # organize the model fluxes into a vector
     return model_flux
 
-
-def chi2_rg(obs_tbl, mod_params, bands_to_ignore=[]):
+def chi2_bb(obs_tbl, mod_params, bands_to_ignore=[]):
     """
     Calculate the chi-square value for a given set of model parameters and observed photometry.
     The chi-square value is calculated using the observed fluxes and the model fluxes.
@@ -153,7 +145,7 @@ def chi2_rg(obs_tbl, mod_params, bands_to_ignore=[]):
     obs_tbl : astropy.table.Table
         Table containing observed photometry.
     mod_params : tuple
-        Tuple containing the model parameters (Teff, R, logg, meta, av, parallax).
+        Tuple containing the model parameters (Teff, R, av, parallax).
     bands_to_ignore : list, optional
         List of bands to ignore in the fitting. Default is empty.
     Returns:
@@ -166,8 +158,8 @@ def chi2_rg(obs_tbl, mod_params, bands_to_ignore=[]):
     obs_bands = bands[np.isin(bands, obs_tbl.colnames)]
 
     # retrieve model parameters, calculate model flux in all bands
-    t, r, logg, meta, av, parallax = mod_params
-    model_flux = model_flux_rg(t, r, logg, meta, av, parallax)
+    t, r, av, parallax = mod_params
+    model_flux = model_flux_bb(t, r, av, parallax)
 
     # organize the observed fluxes and wavelengths into vectors
     flux = np.array([obs_tbl[0][bnd] for bnd in obs_bands])
@@ -335,7 +327,7 @@ def fit_MS_RTlogg(obs_tbl, meta, av,  init_guess=[6000, 1, 4], bounds=[(3500, 0.
     y_err = flux_err[obs_mask]
 
     # define the model function; use the general function, but fix the metallicity, extinction, and parallax
-    model_flux = lambda wl,t,r,logg: model_flux_rg(t,r,logg,meta,av,parallax)[mod_mask]
+    model_flux = lambda wl,t,r,logg: model_flux_ms(t,r,logg,meta,av,parallax)[mod_mask]
     # do a chi-square fit
     res = curve_fit(model_flux,x,y,p0=init_guess,bounds=bounds,sigma=y_err,absolute_sigma=True)
     t1_fit,r1_fit,logg_fit = res[0]
@@ -349,29 +341,26 @@ def fit_MS_RTlogg(obs_tbl, meta, av,  init_guess=[6000, 1, 4], bounds=[(3500, 0.
     return t1_fit,t1_err,r1_fit,r1_err,logg_fit,logg_err,redchi2
 
 
-
-def fit_RG_RTlogg(obs_tbl, meta, av, init_guess=[6000, 10, 4], bounds=[(3500, 0.1, 1), (10000, 15, 5)], bands_to_ignore=[]):
+def fit_BB(obs_tbl, av, init_guess=[6000, 1], bounds=[(3500, 0.1), (10000, 5)], bands_to_ignore=[]):
     """
-    Fit the SED of a source using Kurucz models.
-    Fitting parameters are effective temperature (Teff), radius (R) and surface gravity (logg).
-    Fixed parameters are metallicity (meta), extinction (av) and parallax.
+    Fit the SED of a source using blackbody models.
+    Fitting parameters are effective temperature (Teff) and radius (R).
+    Fixed parameters are extinction (av) and parallax.
 
     Parameters:
     -----------
     obs_tbl : astropy.table.Table or None
         Table containing observed photometry. If None, photometry is retrieved using source_id.
-    meta : float
-        Metallicity of the source.
     av : float
         Extinction in the V band.
     init_guess : list, optional
-        Initial guess for the fitting parameters (Teff, R, logg). Default is [6000, 1, 4].
+        Initial guess for the fitting parameters (Teff, R). Default is [6000, 1].
     bounds : list of tuples, optional
-        Bounds for the fitting parameters (Teff, R, logg).
-        Format is [(Teff_min, R_min, logg_min), (Teff_max, R_max, logg_max)]. Default is [(3500, 0.1, 1), (10000, 5, 5)].
+        Bounds for the fitting parameters (Teff, R).
+        Format is [(Teff_min, R_min), (Teff_max, R_max)]. Default is [(3500, 0.1), (10000, 5)].
     bands_to_ignore : list, optional
         List of bands to ignore in the fitting. Default is empty.
-        Options: ['GALEX.FUV', 'GALEX.NUV', 'Johnson.U', 'SDSS.u', 'Johnson.B', 'SDSS.g',
+        Options: ['H1','H2','H3','H4','GALEX.FUV', 'GALEX.NUV', 'Johnson.U', 'SDSS.u', 'Johnson.B', 'SDSS.g',
                   'GAIA3.Gbp', 'Johnson.V', 'GAIA3.G', 'SDSS.r', 'Johnson.R', 'SDSS.i',
                   'GAIA3.Grp', 'Johnson.I', 'SDSS.z', '2MASS.J', '2MASS.H', '2MASS.Ks', 'WISE.W1',
                   'WISE.W2', 'WISE.W3']
@@ -379,7 +368,7 @@ def fit_RG_RTlogg(obs_tbl, meta, av, init_guess=[6000, 10, 4], bounds=[(3500, 0.
     Returns:
     --------
     tuple
-        A tuple containing the fitted parameters (Teff, R, logg) and the reduced chi-square value.
+        A tuple containing the fitted parameters (Teff, R) and the reduced chi-square value.
     """
 
     bands_table = brr.get_bands_table()
@@ -413,19 +402,18 @@ def fit_RG_RTlogg(obs_tbl, meta, av, init_guess=[6000, 10, 4], bounds=[(3500, 0.
     y_err = flux_err[obs_mask]
 
     # define the model function; use the general function, but fix the metallicity, extinction, and parallax
-    model_flux = lambda wl,t,r,logg: model_flux_ms(t,r,logg,meta,av,parallax)[mod_mask]
+    model_flux = lambda wl,t,r: model_flux_bb(t,r,av,parallax)[mod_mask]
     # do a chi-square fit
     res = curve_fit(model_flux,x,y,p0=init_guess,bounds=bounds,sigma=y_err,absolute_sigma=True)
-    t1_fit,r1_fit,logg_fit = res[0]
-    t1_err,r1_err,logg_err = np.sqrt(np.diag(res[1]))
+    t1_fit,r1_fit = res[0]
+    t1_err,r1_err = np.sqrt(np.diag(res[1]))
 
     # calculate the reduced chi-square value, while considering the residuals for ALL bands (including the ignored)
-    chi2 = chi2_ms(obs_tbl, (t1_fit, r1_fit, logg_fit, meta, av, parallax), bands_to_ignore=[])
-    dof = len(flux) - 3 # subtract three for the three fitting parameters T,R,logg
+    chi2 = chi2_bb(obs_tbl, (t1_fit, r1_fit, av, parallax), bands_to_ignore=[])
+    dof = len(flux) - 2 # subtract two for the two fitting parameters T,R
     redchi2 = chi2 / dof
-    
-    return t1_fit,t1_err,r1_fit,r1_err,logg_fit,logg_err,redchi2
 
+    return t1_fit,t1_err,r1_fit,r1_err,redchi2
 
 
 def fit_MSWD(obs_tbl, meta, av, init_guess=[6000,1,4,10000,8],bounds=[(3500,0.1,1,5000,6),(10000,5,5,50000,9)],bands_to_ignore=[]):

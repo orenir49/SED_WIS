@@ -6,3 +6,4 @@ SEDer/models/kurucz_spectra__pycache__/
 *.pyc
 SEDer/models/kurucz_spectra
 notebooks/hst_mock_fits.ipynb
+notebooks/data/
