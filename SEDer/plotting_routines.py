@@ -53,7 +53,7 @@ def plot_data_vs_model(x,y,yerr,mask,x_model,y_model,ax,lbl):
     ## displaying observed SED
     ax.scatter(x_fit,y_fit,marker='.',color='Crimson',s=60,zorder = 10,label=f'Used in fit')
     ax.scatter(x_ignored,y_ignored,marker='.',color='k',s=60,zorder = 10,label='Excluded from fit')
-    ax.legend(fontsize=9,loc='lower center',frameon=False)
+    ax.legend(fontsize=9,loc='lower left',frameon=False)
     ax.set_yscale('log')
     ax.set_ylabel(r'$\lambda f_\lambda $ (erg$\,$s$^{-1}\,$cm$^{-2}$)',labelpad=-1.2,fontsize=12) 
     ax.tick_params(axis='y', which='major', labelsize=10)
@@ -131,6 +131,49 @@ def create_model_label(teff1,teff1_err,r1,r1_err,chi2):
     lbl += r'$T_{\text{eff},1}=$' 
     lbl += f'{int(np.round(teff1,sig_dig_t))}$\pm${int(np.round(teff1_err,sig_dig_t))} K, '
     lbl += '$R_1=$' + f'{np.round(r1,sig_dig_r)}$\pm${np.round(r1_err,sig_dig_r)} $R_\odot$'
+    return lbl
+
+def create_mswd_label(t1,t1_err,r1,r1_err,t2,t2_err,logg2,logg2_err,chi2):
+    """
+    Generates a formatted label describing the best-fit MS+WD model parameters.
+
+    Parameters:
+    -----------
+    t1 : float
+        Best-fit effective temperature of the main sequence star.
+    t1_err : float
+        Uncertainty in effective temperature of the main sequence star.
+    r1 : float
+        Best-fit radius of the main sequence star.
+    r1_err : float
+        Uncertainty in radius of the main sequence star.
+    t2 : float
+        Best-fit effective temperature of the white dwarf.
+    t2_err : float
+        Uncertainty in effective temperature of the white dwarf.
+    logg2 : float
+        Best-fit log(g) of the white dwarf.
+    logg2_err : float
+        Uncertainty in log(g) of the white dwarf.
+    chi2 : float
+        Reduced chi-square value of the fit.
+
+    Returns:
+    --------
+    lbl : str
+        Formatted label for the best-fit MS+WD model.
+    """
+    sig_dig_t1 = -int(np.floor(np.log10(t1_err)))
+    sig_dig_r1 = -int(np.floor(np.log10(r1_err)))
+    sig_dig_t2 = 5
+    sig_dig_logg2 = 1
+    lbl = f'Best-fit MS+WD model, $\chi^2/ndof$= {chi2:.2f} \n' 
+    lbl += r'$T_{\text{eff},1}=$' 
+    lbl += f'{int(np.round(t1,sig_dig_t1))}$\pm${int(np.round(t1_err,sig_dig_t1))} K, '
+    lbl += '$R_1=$' + f'{np.round(r1,sig_dig_r1)}$\pm${np.round(r1_err,sig_dig_r1)} $R_\odot$ \n'
+    lbl += r'$T_{\text{eff},2}=$' 
+    lbl += f'{int(np.round(t2,sig_dig_t2))}$\pm${int(np.round(t2_err,sig_dig_t2))} K, '
+    lbl += r'$\log{g_2}=$' + f'{np.round(logg2,sig_dig_logg2)}$\pm${np.round(logg2_err,sig_dig_logg2)}'
     return lbl
 
 def plot_kurucz_fit(obs_tbl,meta,av,fit_results, source_id=None,parallax=None,bands_to_ignore=[],plot=True,save=False):
@@ -213,6 +256,72 @@ def plot_kurucz_fit(obs_tbl,meta,av,fit_results, source_id=None,parallax=None,ba
     plot_data_vs_model(obs_wl,flux,flux_err,obs_mask,wl,flux_model,ax[0],best_fit_label)
     plot_residuals(obs_wl,flux,flux_err,obs_mask,obs_wl,flux_model[mod_mask],ax[1])
 
+    ax[1].set_xscale('log')
+    ax[1].set_xlabel(r'Wavelength $(\AA)$',fontsize=12)
+    ax[1].tick_params(axis='x', which='major', labelsize=10)       
+    fig.show()
+    if save:
+        fig.savefig(f'../img/kurucz_{source_id}.png')
+    if not plot:
+        plt.close(fig)
+
+def plot_mswd_fit(obs_tbl,meta,av,fit_results, source_id=None,parallax=None,bands_to_ignore=[],plot=True,save=False):
+    assert not (obs_tbl is None and source_id is None), "Both obs_tbl and source_id cannot be None at the same time"
+    
+    # Get the observed data, if obs_tbl was not provided
+    if obs_tbl is None:
+        obs_tbl,flags = brr.get_photometry_single_source(source_id)
+
+    # Override the obs_tbl parallax if provided seperately
+    if parallax is None:
+        parallax = obs_tbl[0]['parallax']
+
+    # Organize the observed data    
+    bands_table = brr.get_bands_table()
+    bands = np.array(bands_table['band'])
+    obs_bands = bands[np.isin(bands, obs_tbl.colnames)]
+
+    wl = np.array(list(bands_table['lambda_eff']))
+    obs_wl = wl[np.isin(bands, obs_tbl.colnames)]
+    flux     = np.array([obs_tbl[0][bnd] for bnd in obs_bands])
+    flux     = flux * obs_wl
+    flux_err = np.array([obs_tbl[0][bnd + '_err'] for bnd in obs_bands])
+    flux_err = flux_err * obs_wl
+
+    # Continue organizing the observed data- separate points used in fit from those ignored
+    # mask np.nan values (bands that are not observed), and bands to ignore
+    obs_mask = np.isfinite(flux) & ~np.isin(obs_bands, bands_to_ignore)
+    mod_mask = np.isin(bands, obs_tbl.colnames) 
+    
+    # All model parameters
+    t1_fit,t1_err,r1_fit,r1_err,logg1_fit,logg1_err,t2_fit,t2_err,logg2_fit,logg2_err,redchi2 = fit_results
+
+    best_fit_label = create_mswd_label(t1_fit,t1_err,r1_fit,r1_err,
+                                       t2_fit,t2_err,logg2_fit,logg2_err,redchi2)
+
+    # Get the best fit model
+    m1 = fr.get_mass(logg1_fit,r1_fit)
+    ms = sr.get_MS_sed(t1_fit,m1,r1_fit,meta,parallax)
+    ms = sr.redden_model_table(ms, t1_fit, av, bands_table=bands_table)
+    wd = sr.get_wd_koester_sed(t2_fit,logg2_fit,parallax)
+    wd = sr.redden_model_table(wd,t2_fit,av) # apply reddening
+    wd = sr.redden_model_table(wd, t2_fit, av, bands_table=bands_table)
+    
+    flux_model = np.array([ms[bnd][0] + wd[bnd][0] for bnd in bands_table['wd_band']]) * wl
+
+    # define the figure
+    fig = plt.figure(figsize=(1.5*3.5,3.5),tight_layout=True, dpi=400)
+    gs = fig.add_gridspec(2, 1, height_ratios=[3, 1], hspace=0)
+    ax = gs.subplots(sharex=True)
+
+    # pass axes to plotting routines (best fit vs data, residuals)
+    plot_data_vs_model(obs_wl,flux,flux_err,obs_mask,wl,flux_model,ax[0],best_fit_label)
+    plot_residuals(obs_wl,flux,flux_err,obs_mask,obs_wl,flux_model[mod_mask],ax[1])
+
+    ms_flx = np.array([ms[bnd][0] for bnd in bands_table['wd_band']]) * wl
+    wd_flx = np.array([wd[bnd][0] for bnd in bands_table['wd_band']]) * wl
+    ax[0].plot(wl,ms_flx,color='Green',ls=':',lw=1,label='MS',zorder=4)
+    ax[0].plot(wl,wd_flx,color='Orange',ls=':',lw=1,label='WD',zorder=4)
     ax[1].set_xscale('log')
     ax[1].set_xlabel(r'Wavelength $(\AA)$',fontsize=12)
     ax[1].tick_params(axis='x', which='major', labelsize=10)       

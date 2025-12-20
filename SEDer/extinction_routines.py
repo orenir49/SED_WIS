@@ -5,6 +5,7 @@ from os import path
 from urllib import request
 import ssl 
 from astroquery.gaia import Gaia
+from astropy.table import Table
 import os 
 import shutil
 

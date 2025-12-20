@@ -208,8 +208,10 @@ def get_synthetic_photometry(source_table):
         
         # Convert Johnson fluxes from W/s/m^2/nm to erg/s/cm^2/AA
         if band.startswith('Johnson'):
-            result[col] = result[col].to(u.erg / u.s / u.cm**2 / u.AA)
-            result[err_col] = result[err_col].to(u.erg / u.s / u.cm**2 / u.AA)
+            # result[col] = result[col].to(u.erg / u.s / u.cm**2 / u.AA)
+            # result[err_col] = result[err_col].to(u.erg / u.s / u.cm**2 / u.AA)
+            result[col] = result[col]*(u.erg / u.s / u.cm**2 / u.AA)
+            result[err_col] = result[err_col]*(u.erg / u.s / u.cm**2 / u.AA)
         
         # Convert SDSS fluxes from W/s/m^2/Hz to erg/s/cm^2/AA
         elif band.startswith('SDSS'):
@@ -520,7 +522,7 @@ def get_photometry_single_source(source_id, snr_lim=10):
     Table: Table with photometry data from multiple catalogs converted to physical units for the single source.
     For all fluxes with reported SNR > snr_lim, the error is set to 10% of the flux.
     """
-    query = f'''SELECT source_id, ra, dec, parallax, parallax_error, ag_gspphot 
+    query = f'''SELECT source_id, ra, dec, parallax, parallax_error, ag_gspphot, non_single_star
                 FROM gaiadr3.gaia_source 
                 WHERE source_id = {source_id}'''
     job = Gaia.launch_job(query)
@@ -536,6 +538,19 @@ def get_photometry_single_source(source_id, snr_lim=10):
     tbl['parallax_error'] = result['parallax_error'][0]
     tbl['Av'] = result['ag_gspphot'][0]
 
+    if result['non_single_star'][0] != 0:
+        query = f'''SELECT source_id, parallax, parallax_error
+                    FROM gaiadr3.nss_two_body_orbit 
+                    WHERE source_id = {source_id}'''
+        job = Gaia.launch_job(query)
+        nss_result = job.get_results()
+        if len(nss_result) > 0:
+            nss_plx = nss_result['parallax'][0]
+            nss_plx_err = nss_result['parallax_error'][0]
+            if np.isfinite(nss_plx) and (nss_plx_err < result['parallax_error'][0]):
+                tbl['parallax'] = nss_plx
+                tbl['parallax_error'] = nss_plx_err
+                print(f"Using NSS parallax for source_id {source_id}")
     
     tbl.add_row(tbl[0])
     tbl = table.join(tbl, get_gaia_photometry(tbl), keys='source_id', join_type='left', metadata_conflicts='silent')
